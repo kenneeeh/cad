@@ -1,0 +1,130 @@
+{
+  "strategies": {
+    "adaptive": "Experiment B: first complete exactly 200 random warmup transitions, with no learning. Then independently choose LLM probes or optional TD3 training from measured history. Prefer physics-guided exploration first. Eight non-improving LLM evaluations or repeated constraint bottlenecks suggest reconsidering the method, never force a switch or stop. Use train(n_steps=N, reason=\"measurement-based reason with candidate IDs\") when useful, prefer 100-400 step batches, and freely return to LLM refinement of promising measured TD3 bases. No fixed training quota; assess both methods before concluding that no useful action remains.",
+    "interleaved": "Start with TD3 warmup, then large train batches. At occasional batch boundaries, consult the specialist and refine promising measured TD3 designs with a few LLM evaluations. Continue training on the SAME learner and shared replay; reserve budget for continued training after interventions. Do not intervene after every small batch.",
+    "td3_then_llm": "Complete TD3 warmup and training FIRST, reserving a small part of the total budget for final LLM refinement. Track the best measured TD3 policy candidate across all training batches using their returned best IDs/rewards (not just the last batch). Then retrieve its full parameters, consult the specialist and perform controlled local refinements. After the first LLM evaluation, NEVER call warmup or train again. If no policy candidate was measured, report that failure rather than substituting an LLM base.",
+    "llm_then_td3": "Begin with specialist-guided LLM exploration ONLY: no warmup/train yet. Count every actual LLM simulation attempt in THIS run, including the initial measurement and failed attempts; exclude imported historical candidates and invalid calls that did not simulate. Track best reward among successful LLM evaluations in this run and consecutive non-improving attempts in evaluation order. A strictly greater reward resets the streak to zero; a tie, lower reward or failed simulation increments it. The first successful evaluation establishes the best and resets the streak. Switch to TD3 immediately after EITHER eight consecutive non-improving evaluations OR 30 total LLM evaluations. Limit each probe batch to min(5, 8-streak, 30-total) so it cannot cross the switch point. Only then call warmup and large train batches, reusing existing replay injection of the measured LLM designs; make no further LLM evaluations after switching. If the total simulation budget ends before the trigger, report the TD3 phase as not reached; never activate TD3 early just to fit it in. Report the switch counts and triggering candidate ID."
+  },
+  "adaptive_schema": {
+    "type": "object",
+    "properties": {
+      "stop_reason": {
+        "type": "string",
+        "enum": [
+          "budget_exhausted",
+          "no_useful_action",
+          "resource_limit",
+          "execution_error"
+        ]
+      },
+      "stop_explanation": {
+        "type": "string",
+        "minLength": 1
+      },
+      "remaining_methods_assessment": {
+        "type": "string",
+        "minLength": 1
+      },
+      "best_design_id": {
+        "type": "string"
+      },
+      "decisions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "candidate_id": {
+              "type": "string"
+            },
+            "decision": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "next_action": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "candidate_id",
+            "decision",
+            "reason",
+            "next_action"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "method_switches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "evidence_candidate_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "method",
+            "reason",
+            "evidence_candidate_ids"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "stop_reason",
+      "stop_explanation",
+      "remaining_methods_assessment",
+      "best_design_id",
+      "decisions",
+      "method_switches"
+    ],
+    "additionalProperties": false
+  },
+  "instructions": {
+    "adaptive": ". Select the best measured feasible warmup base with full sizes/specs and margins. The warmup/train response supplies guidance_base; use it directly without redundant archive reads. If none is feasible, explicitly say so and use the best measured infeasible base; never invent feasibility. No initial LLM evaluation before warmup. Keep the same nominal initial_design.json as Experiment A. At most TWO specialist consultations total: one initial invocation and at most one optional follow-up. Use at most 30 coordinator responses; reserve the last response for the structured final result. The CLI has no reliable response-count flag: this limit is advisory and audited, with a 15-minute timeout. No repository reads, status polling or full-history dumps. Batch independent probes up to five. Never stop merely because a feasible/positive/sufficient reward was found. Stagnation prompts a method decision. Continue constructive actions until budget/resource exhaustion, genuine execution error, or a measurement-grounded explanation of why neither remaining LLM probes nor TD3 is useful. Training is optional, not a required quota. For each train call, reason must cite actual candidate IDs and recent measurements; 8 non-improving evaluations are a suggestion, not a forced switch. Record actual method switches and candidate decisions in the structured final response. Explain remaining methods for every stop, including unused TD3 capacity. Current constraints remain gain>=200, noise<=0.03 V RMS, PM>=60 deg, rising slew>=30 V/us, UGBW>=100 MHz.",
+    "schedule": ". Complete it even after finding feasible or positive rewards. Do not shrink it or stop for a reward threshold, lack of improvement (except the LLM-first phase switch), or a good design. Stop only on protocol completion, budget exhaustion or execution error; identify unfinished phases. Tie short keep/reject/follow-up decisions to measured candidate IDs in the next hypothesis or final response; do not invent retrospective physical explanations.",
+    "guard": " Backend phase/count guards enforce this schedule. Use returned protocol progress; do not poll. For each intervention record a short base-ID/hypothesis/trade-off, then an actual keep/reject/follow-up decision tied to returned candidate IDs. Consult the specialist before choosing intervention values; retain its short advice and ID in the final response. No repository reads or reward-based early finish.",
+    "measure_initial": " For this protocol, FIRST simulate the unchanged supplied initial design once, before TD3 warmup. This initial measurement precedes the strategy sequence."
+  },
+  "protected_sources": [
+    "circuit_env.py",
+    "td3/agent.py",
+    "td3/buffer.py",
+    "ngspice_interface/dut_testbench.py",
+    "ngspice_interface/ngspice_wrapper.py",
+    "ngspice_interface/files/yaml_files/TwoStage.yaml",
+    "requirements-lock.txt"
+  ],
+  "harness_sources": [
+    "GEMINI.md",
+    "experiment.md",
+    "initial_design.json",
+    "run_experiment.py",
+    "mcp_server.py",
+    "td3_session.py",
+    "td3_candidates.py",
+    "candidates.py",
+    "circuit_adapter.py",
+    "replay_injection.py",
+    "efficiency.py",
+    "experiment_constants.json"
+  ],
+  "runtime_variables": [
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "MPLBACKEND",
+    "NGSPICE_EXECUTABLE"
+  ]
+}
