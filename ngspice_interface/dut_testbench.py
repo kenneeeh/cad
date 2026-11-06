@@ -3,7 +3,6 @@ import numpy as np
 import os
 import scipy.interpolate as interp
 import scipy.optimize as sciopt
-from scipy.optimize import differential_evolution
 from .area_estimation import BPTM45nmAreaEstimator
 from .ngspice_wrapper import NgspiceWrapper
 

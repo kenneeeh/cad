@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import numpy as np
 from typing import List, Dict
 import pandas as pd
-import matplotlib
 
 def plotLearning(scores, run_id):
     filename = f'./output_figs/{run_id}/average_score.png'

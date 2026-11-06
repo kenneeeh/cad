@@ -3,7 +3,6 @@ from gymnasium.spaces import Box
 import numpy as np
 import os
 import yaml
-import math
 from ngspice_interface import DUT as DUT_NGSpice
 from utils.plotting import plotLearning, plot_running_maximum
 
