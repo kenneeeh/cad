@@ -34,9 +34,11 @@ def main():
     parameters = json.loads((HERE / 'initial_design.json').read_text())
     start = 'First simulate these unchanged physical parameters once: ' + json.dumps(parameters, separators=(',', ':'))
     workflow = ('TD3 is disabled. Refine measured designs using physics-guided evaluations/probes.' if args.llm_only else
-        'First choose a few physics-guided evaluations. Then call warmup to add random diversity. '
-        'Alternate short train batches with occasional measured LLM interventions. The same learner and '
-        'buffer persist; pending LLM records enter replay after a valid reset. No automatic warmup ratio.')
+        'Call warmup(n_steps={w}) once right away (skip other exploration), then call train with LARGE batches '
+        'of about {b} steps. TD3 steps cost no tokens; each model turn does, so use few, large calls. '
+        'After each train batch you may use at most one targeted evaluate_candidate/probe_parameters on the best '
+        'measured design (max 3 interventions in total). Do not consult the specialist and skip the initial get_problem/get_candidates reads (this overrides earlier instructions). Stop when budget is nearly used.'
+        ).format(w=max(1, args.budget // 5), b=max(1, args.budget // 5))
     prompt = ((HERE / 'experiment.md').read_text().replace('{{budget}}', str(args.budget))
               .replace('{{start}}', start).replace('{{mode}}', mode).replace('{{workflow}}', workflow))
     command = [str(AGY), '--settings', str(HERE / '.agents/settings.json'), '--agent', 'coordinator',
