@@ -10,7 +10,7 @@ from candidates import CandidateArchive
 from circuit_adapter import setup_id
 
 HERE = Path(__file__).resolve().parent
-MODEL = 'gemini-3.8-flash-low'
+MODEL = os.environ.get('CAD_MODEL', 'gemini-3.8-flash-low')
 AGY = HERE.parent.parent / '.tools/antigravity/agy.exe'
 
 
