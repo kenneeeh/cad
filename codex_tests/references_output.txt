@@ -1,0 +1,353 @@
+Matplotlib is building the font cache; this may take a moment.
+
+ Initialized TwoStage with simulator ngspice 
+
+CSV: C:\Users\inesb\Documents\CADproject\references.csv
+Artifacts: C:\Users\inesb\Documents\CADproject\cad-git\codex_tests\artifacts\references_vgrihlf3
+PVT from existing environment: {'process': 'TT', 'voltage': 1.2, 'temp': 27}
+Measurement criterion: rtol=0.05, atol={'area': 1e-18, 'current': 1e-12, 'gain': 1e-09, 'noise': 1e-12, 'phm': 1e-06, 'slewRate': 1e-06, 'ugbw': 1.0}
+
+--- Design 1 ---
+Action mapping: 0/20 parameters match
+parameter     returned    reference
+      mp1 7.000000e+00 6.000000e+00
+      wp1 2.500000e-06 2.250000e-06
+      lp1 1.800000e-07 1.350000e-07
+      mn1 1.100000e+01 1.000000e+01
+      wn1 7.500000e-07 5.000000e-07
+      ln1 1.800000e-07 1.350000e-07
+      mp3 1.100000e+01 1.000000e+01
+      wp3 2.000000e-06 1.750000e-06
+      lp3 1.350000e-07 9.000000e-08
+      mn3 2.000000e+00 1.000000e+00
+      wn3 1.250000e-06 1.000000e-06
+      ln3 1.800000e-07 1.350000e-07
+      mn4 1.000000e+01 9.000000e+00
+      wn4 1.500000e-06 1.250000e-06
+      ln4 1.800000e-07 1.350000e-07
+      mn5 7.000000e+00 6.000000e+00
+      wn5 1.000000e-06 7.500000e-07
+      ln5 1.350000e-07 9.000000e-08
+      cap 9.000000e-13 8.000000e-13
+      res 9.600000e+03 9.500000e+03
+Normalization:
+    spec  computed  reference  pass
+    area -0.343464  -0.343464  True
+ current  0.434347   0.434347  True
+    gain  0.606776   0.606776  True
+   noise  0.136027   0.136027  True
+     phm -0.112181  -0.112181  True
+slewRate  0.655697   0.412529 False
+    ugbw  0.993078   0.484455 False
+Reward (computed normalization): -0.252751449721; reference=-0.252751449721; feasible=False; physical constraints=False
+Reward (CSV normalization): -0.25275144972; reference=-0.252751449721; feasible=False; physical constraints=False
+Measurements:
+    spec  unit      measured     reference       error_%  pass
+    area   m^2 9.7737785e-10 9.7737785e-10  9.753911e-12  True
+ current     A 0.00050714721 0.00050714721             0  True
+    gain   V/V     817.23245     817.23245 4.7145056e-11  True
+   noise V RMS   0.039450844   0.039446578   0.010814626  True
+     phm   deg     47.894281      47.89613  0.0038608259  True
+slewRate  V/us     17.808214      72.13265     75.311854 False
+    ugbw    Hz 2.8793927e+08 2.8793927e+08 1.4746981e-10  True
+
+--- Design 2 ---
+Action mapping: 0/20 parameters match
+parameter     returned    reference
+      mp1 1.600000e+01 1.500000e+01
+      wp1 1.500000e-06 1.250000e-06
+      lp1 1.350000e-07 9.000000e-08
+      mn1 1.100000e+01 1.000000e+01
+      wn1 1.250000e-06 1.000000e-06
+      ln1 1.350000e-07 9.000000e-08
+      mp3 1.300000e+01 1.200000e+01
+      wp3 1.500000e-06 1.250000e-06
+      lp3 1.350000e-07 9.000000e-08
+      mn3 1.600000e+01 1.500000e+01
+      wn3 1.750000e-06 1.500000e-06
+      ln3 1.350000e-07 9.000000e-08
+      mn4 1.200000e+01 1.100000e+01
+      wn4 1.750000e-06 1.500000e-06
+      ln4 1.350000e-07 9.000000e-08
+      mn5 1.200000e+01 1.100000e+01
+      wn5 1.250000e-06 1.000000e-06
+      ln5 1.350000e-07 9.000000e-08
+      cap 4.600000e-12 4.500000e-12
+      res 4.900000e+03 4.800000e+03
+Normalization:
+    spec  computed  reference  pass
+    area -0.027228  -0.027228  True
+ current -0.520551  -0.520551  True
+    gain -0.381035  -0.381035  True
+   noise -0.826166  -0.826166  True
+     phm -0.067231  -0.067231  True
+slewRate -0.504577  -0.717271 False
+    ugbw  0.613362  -0.919887 False
+Reward (computed normalization): -0.925454060728; reference=-2.05803492421; feasible=False; physical constraints=False
+Reward (CSV normalization): -2.05803492421; reference=-2.05803492421; feasible=False; physical constraints=False
+Measurements:
+    spec  unit      measured     reference       error_%  pass
+    area   m^2 1.8939731e-09 1.8939731e-09 1.5085123e-10  True
+ current     A 6.3062567e-05 6.3062567e-05             0  True
+    gain   V/V     89.637909     89.637907 2.2311587e-06  True
+   noise V RMS  0.0028558087  0.0028557284  0.0028118921  True
+     phm   deg     52.442238     52.440502  0.0033107575  True
+slewRate  V/us     3.0147764     4.9391559     38.961708 False
+    ugbw    Hz     4172793.8     4172793.8 8.2381819e-09  True
+
+--- Design 3 ---
+Action mapping: 0/20 parameters match
+parameter     returned    reference
+      mp1 8.000000e+00 7.000000e+00
+      wp1 2.000000e-06 1.750000e-06
+      lp1 1.800000e-07 1.350000e-07
+      mn1 2.100000e+01 2.000000e+01
+      wn1 2.500000e-06 2.250000e-06
+      ln1 1.800000e-07 1.350000e-07
+      mp3 2.300000e+01 2.200000e+01
+      wp3 2.500000e-06 2.250000e-06
+      lp3 1.800000e-07 1.350000e-07
+      mn3 2.200000e+01 2.100000e+01
+      wn3 1.250000e-06 1.000000e-06
+      ln3 1.350000e-07 9.000000e-08
+      mn4 9.000000e+00 8.000000e+00
+      wn4 1.000000e-06 7.500000e-07
+      ln4 1.350000e-07 9.000000e-08
+      mn5 1.800000e+01 1.700000e+01
+      wn5 5.000000e-07 2.500000e-07
+      ln5 9.000000e-08 4.500000e-08
+      cap 9.000000e-13 8.000000e-13
+      res 4.000000e+03 3.900000e+03
+Normalization:
+    spec  computed  reference  pass
+    area -0.518693  -0.518693  True
+ current -0.547594  -0.547594  True
+    gain -0.139269  -0.139269  True
+   noise -0.853822  -0.853822  True
+     phm -0.149893  -0.149893  True
+slewRate -0.241859  -0.532280 False
+    ugbw  0.791260  -0.841938 False
+Reward (computed normalization): -0.477706720991; reference=-1.61006578483; feasible=False; physical constraints=False
+Reward (CSV normalization): -1.61006578483; reference=-1.61006578483; feasible=False; physical constraints=False
+Measurements:
+    spec  unit      measured     reference       error_%  pass
+    area   m^2 6.3384285e-10 6.3384285e-10 1.5007785e-11  True
+ current     A 5.8465647e-05 5.8465647e-05             0  True
+    gain   V/V     151.10235     151.10235 3.0727321e-10  True
+   noise V RMS  0.0023661288  0.0023655671   0.023744835  True
+     phm   deg     44.360709      44.35755  0.0071209511  True
+slewRate  V/us     7.0795111     9.1573252     22.690186 False
+    ugbw    Hz     8581284.5     8581284.5 2.9780497e-11  True
+
+--- Design 4 ---
+Action mapping: 0/20 parameters match
+parameter     returned    reference
+      mp1 9.000000e+00 8.000000e+00
+      wp1 1.750000e-06 1.500000e-06
+      lp1 1.800000e-07 1.350000e-07
+      mn1 1.600000e+01 1.500000e+01
+      wn1 2.000000e-06 1.750000e-06
+      ln1 1.800000e-07 1.350000e-07
+      mp3 1.900000e+01 1.800000e+01
+      wp3 2.250000e-06 2.000000e-06
+      lp3 1.800000e-07 1.350000e-07
+      mn3 1.600000e+01 1.500000e+01
+      wn3 1.500000e-06 1.250000e-06
+      ln3 1.350000e-07 9.000000e-08
+      mn4 1.400000e+01 1.300000e+01
+      wn4 1.750000e-06 1.500000e-06
+      ln4 1.350000e-07 9.000000e-08
+      mn5 1.800000e+01 1.700000e+01
+      wn5 7.500000e-07 5.000000e-07
+      ln5 9.000000e-08 4.500000e-08
+      cap 3.600000e-12 3.500000e-12
+      res 6.100000e+03 6.000000e+03
+Normalization:
+    spec  computed  reference  pass
+    area -0.090988  -0.090988  True
+ current -0.287610  -0.287610  True
+    gain -0.029985  -0.029985  True
+   noise -0.816061  -0.816061  True
+     phm  0.265848   0.265848  True
+slewRate -0.370211  -0.626261 False
+    ugbw  0.872616  -0.743670 False
+Reward (computed normalization): -0.381265899285; reference=-1.38098631784; feasible=False; physical constraints=False
+Reward (CSV normalization): -1.38098631784; reference=-1.38098631784; feasible=False; physical constraints=False
+Measurements:
+    spec  unit      measured     reference       error_%  pass
+    area   m^2 1.6664031e-09 1.6664031e-09  1.143179e-10  True
+ current     A 0.00011065298 0.00011065298             0  True
+    gain   V/V     188.35509     188.35509 8.0109784e-11  True
+   noise V RMS  0.0030397332  0.0030385342   0.039459816  True
+     phm   deg     103.45801     103.45381  0.0040586195  True
+slewRate  V/us     5.9586588     6.8944448     13.573044 False
+    ugbw    Hz      14700609      14700609 2.3075938e-08  True
+
+--- Design 5 ---
+Action mapping: 0/20 parameters match
+parameter     returned    reference
+      mp1 1.300000e+01 1.200000e+01
+      wp1 1.000000e-06 7.500000e-07
+      lp1 1.800000e-07 1.350000e-07
+      mn1 1.600000e+01 1.500000e+01
+      wn1 1.750000e-06 1.500000e-06
+      ln1 1.800000e-07 1.350000e-07
+      mp3 1.100000e+01 1.000000e+01
+      wp3 1.750000e-06 1.500000e-06
+      lp3 1.350000e-07 9.000000e-08
+      mn3 2.000000e+01 1.900000e+01
+      wn3 2.000000e-06 1.750000e-06
+      ln3 1.350000e-07 9.000000e-08
+      mn4 1.400000e+01 1.300000e+01
+      wn4 1.500000e-06 1.250000e-06
+      ln4 1.350000e-07 9.000000e-08
+      mn5 1.400000e+01 1.300000e+01
+      wn5 1.250000e-06 1.000000e-06
+      ln5 9.000000e-08 4.500000e-08
+      cap 2.500000e-12 2.400000e-12
+      res 7.600000e+03 7.500000e+03
+Normalization:
+    spec  computed  reference  pass
+    area -0.177602  -0.177602  True
+ current -0.455974  -0.455974  True
+    gain -0.573443  -0.573443  True
+   noise -0.934724  -0.934724  True
+     phm  0.235051   0.235051  True
+slewRate -0.538753  -0.739317 False
+    ugbw  0.652020  -0.909354 False
+Reward (computed normalization): -1.08051716132; reference=-2.19043512492; feasible=False; physical constraints=False
+Reward (CSV normalization): -2.19043512492; reference=-2.19043512492; feasible=False; physical constraints=False
+Measurements:
+    spec  unit      measured     reference       error_%  pass
+    area   m^2 1.3967348e-09 1.3967348e-09 3.0681673e-10  True
+ current     A 7.4730222e-05 7.4730221e-05 1.3381467e-06  True
+    gain   V/V     54.219596     54.219593 5.5330787e-06  True
+   noise V RMS  0.0010134911    0.00101217    0.13052155  True
+     phm   deg     96.872604     96.873166 0.00058049782  True
+slewRate  V/us     4.2023769     4.4963054     6.5371117 False
+    ugbw    Hz     4747450.8     4747450.6 5.1305512e-06  True
+Got no intersection
+
+PASS no-UGBW fallback: UGBW=0, PHM=0, normalized=-1 each, reward=-2.0, feasible=False
+Simulator attempts: 5 (expected five)
+
+119 discrepancies
+Design 1: action_refine mp1: 7 != 6
+Design 1: action_refine wp1: 2.5e-06 != 2.25e-06
+Design 1: action_refine lp1: 1.8e-07 != 1.35e-07
+Design 1: action_refine mn1: 11 != 10
+Design 1: action_refine wn1: 7.5e-07 != 5e-07
+Design 1: action_refine ln1: 1.8e-07 != 1.35e-07
+Design 1: action_refine mp3: 11 != 10
+Design 1: action_refine wp3: 2e-06 != 1.75e-06
+Design 1: action_refine lp3: 1.35e-07 != 9e-08
+Design 1: action_refine mn3: 2 != 1
+Design 1: action_refine wn3: 1.25e-06 != 1e-06
+Design 1: action_refine ln3: 1.8e-07 != 1.35e-07
+Design 1: action_refine mn4: 10 != 9
+Design 1: action_refine wn4: 1.5e-06 != 1.25e-06
+Design 1: action_refine ln4: 1.8e-07 != 1.35e-07
+Design 1: action_refine mn5: 7 != 6
+Design 1: action_refine wn5: 1e-06 != 7.5e-07
+Design 1: action_refine ln5: 1.35e-07 != 9e-08
+Design 1: action_refine cap: 9e-13 != 8e-13
+Design 1: action_refine res: 9600 != 9500
+Design 1: normalize_specs slewRate: 0.65569737764 != 0.412528708408
+Design 1: normalize_specs ugbw: 0.993078130231 != 0.484455389461
+Design 1: measured slewRate: 17.8082137961 != 72.1326503247 (relative error 75.31185431843093%)
+Design 2: action_refine mp1: 16 != 15
+Design 2: action_refine wp1: 1.5e-06 != 1.25e-06
+Design 2: action_refine lp1: 1.35e-07 != 9e-08
+Design 2: action_refine mn1: 11 != 10
+Design 2: action_refine wn1: 1.25e-06 != 1e-06
+Design 2: action_refine ln1: 1.35e-07 != 9e-08
+Design 2: action_refine mp3: 13 != 12
+Design 2: action_refine wp3: 1.5e-06 != 1.25e-06
+Design 2: action_refine lp3: 1.35e-07 != 9e-08
+Design 2: action_refine mn3: 16 != 15
+Design 2: action_refine wn3: 1.75e-06 != 1.5e-06
+Design 2: action_refine ln3: 1.35e-07 != 9e-08
+Design 2: action_refine mn4: 12 != 11
+Design 2: action_refine wn4: 1.75e-06 != 1.5e-06
+Design 2: action_refine ln4: 1.35e-07 != 9e-08
+Design 2: action_refine mn5: 12 != 11
+Design 2: action_refine wn5: 1.25e-06 != 1e-06
+Design 2: action_refine ln5: 1.35e-07 != 9e-08
+Design 2: action_refine cap: 4.6e-12 != 4.5e-12
+Design 2: action_refine res: 4900 != 4800
+Design 2: normalize_specs slewRate: -0.504577230944 != -0.717271022204
+Design 2: normalize_specs ugbw: 0.613361735218 != -0.919887072222
+Design 2: reward from computed normalization: -0.925454060728 != -2.05803492421
+Design 2: measured slewRate: 3.0147764056 != 4.93915591902 (relative error 38.96170813334281%)
+Design 3: action_refine mp1: 8 != 7
+Design 3: action_refine wp1: 2e-06 != 1.75e-06
+Design 3: action_refine lp1: 1.8e-07 != 1.35e-07
+Design 3: action_refine mn1: 21 != 20
+Design 3: action_refine wn1: 2.5e-06 != 2.25e-06
+Design 3: action_refine ln1: 1.8e-07 != 1.35e-07
+Design 3: action_refine mp3: 23 != 22
+Design 3: action_refine wp3: 2.5e-06 != 2.25e-06
+Design 3: action_refine lp3: 1.8e-07 != 1.35e-07
+Design 3: action_refine mn3: 22 != 21
+Design 3: action_refine wn3: 1.25e-06 != 1e-06
+Design 3: action_refine ln3: 1.35e-07 != 9e-08
+Design 3: action_refine mn4: 9 != 8
+Design 3: action_refine wn4: 1e-06 != 7.5e-07
+Design 3: action_refine ln4: 1.35e-07 != 9e-08
+Design 3: action_refine mn5: 18 != 17
+Design 3: action_refine wn5: 5e-07 != 2.5e-07
+Design 3: action_refine ln5: 9e-08 != 4.5e-08
+Design 3: action_refine cap: 9e-13 != 8e-13
+Design 3: action_refine res: 4000 != 3900
+Design 3: normalize_specs slewRate: -0.241859341392 != -0.532280349781
+Design 3: normalize_specs ugbw: 0.791259720616 != -0.841938055447
+Design 3: reward from computed normalization: -0.477706720991 != -1.61006578483
+Design 3: measured slewRate: 7.07951105982 != 9.15732523006 (relative error 22.690186468622358%)
+Design 4: action_refine mp1: 9 != 8
+Design 4: action_refine wp1: 1.75e-06 != 1.5e-06
+Design 4: action_refine lp1: 1.8e-07 != 1.35e-07
+Design 4: action_refine mn1: 16 != 15
+Design 4: action_refine wn1: 2e-06 != 1.75e-06
+Design 4: action_refine ln1: 1.8e-07 != 1.35e-07
+Design 4: action_refine mp3: 19 != 18
+Design 4: action_refine wp3: 2.25e-06 != 2e-06
+Design 4: action_refine lp3: 1.8e-07 != 1.35e-07
+Design 4: action_refine mn3: 16 != 15
+Design 4: action_refine wn3: 1.5e-06 != 1.25e-06
+Design 4: action_refine ln3: 1.35e-07 != 9e-08
+Design 4: action_refine mn4: 14 != 13
+Design 4: action_refine wn4: 1.75e-06 != 1.5e-06
+Design 4: action_refine ln4: 1.35e-07 != 9e-08
+Design 4: action_refine mn5: 18 != 17
+Design 4: action_refine wn5: 7.5e-07 != 5e-07
+Design 4: action_refine ln5: 9e-08 != 4.5e-08
+Design 4: action_refine cap: 3.6e-12 != 3.5e-12
+Design 4: action_refine res: 6100 != 6000
+Design 4: normalize_specs slewRate: -0.37021058107 != -0.626261087383
+Design 4: normalize_specs ugbw: 0.872616402295 != -0.743669912243
+Design 4: reward from computed normalization: -0.381265899285 != -1.38098631784
+Design 4: measured slewRate: 5.95865879957 != 6.89444484991 (relative error 13.573044251038114%)
+Design 5: action_refine mp1: 13 != 12
+Design 5: action_refine wp1: 1e-06 != 7.5e-07
+Design 5: action_refine lp1: 1.8e-07 != 1.35e-07
+Design 5: action_refine mn1: 16 != 15
+Design 5: action_refine wn1: 1.75e-06 != 1.5e-06
+Design 5: action_refine ln1: 1.8e-07 != 1.35e-07
+Design 5: action_refine mp3: 11 != 10
+Design 5: action_refine wp3: 1.75e-06 != 1.5e-06
+Design 5: action_refine lp3: 1.35e-07 != 9e-08
+Design 5: action_refine mn3: 20 != 19
+Design 5: action_refine wn3: 2e-06 != 1.75e-06
+Design 5: action_refine ln3: 1.35e-07 != 9e-08
+Design 5: action_refine mn4: 14 != 13
+Design 5: action_refine wn4: 1.5e-06 != 1.25e-06
+Design 5: action_refine ln4: 1.35e-07 != 9e-08
+Design 5: action_refine mn5: 14 != 13
+Design 5: action_refine wn5: 1.25e-06 != 1e-06
+Design 5: action_refine ln5: 9e-08 != 4.5e-08
+Design 5: action_refine cap: 2.5e-12 != 2.4e-12
+Design 5: action_refine res: 7600 != 7500
+Design 5: normalize_specs slewRate: -0.538753079634 != -0.739316697161
+Design 5: normalize_specs ugbw: 0.652019626253 != -0.909354346073
+Design 5: reward from computed normalization: -1.08051716132 != -2.19043512492
+Design 5: measured slewRate: 4.20237690802 != 4.49630541577 (relative error 6.537111707751162%)

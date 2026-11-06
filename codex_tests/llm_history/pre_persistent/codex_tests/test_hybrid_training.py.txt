@@ -1,0 +1,226 @@
+"""Focused hybrid checks; real ngspice smoke is opt-in, never calls a model."""
+from copy import deepcopy
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+import numpy as np
+import torch
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+from circuit_env import CircuitEnv
+from td3 import TD3, ReplayBuffer
+import td3_runner
+from llm.candidates import CandidateArchive
+from llm.circuit_adapter import CircuitAdapter
+from llm.replay_injection import physical_to_action
+from llm.train_td3 import HybridReplay, main, run_training
+
+PARAMETERS = json.loads((REPO / 'llm/initial_design.json').read_text())
+
+
+def arguments(run_id):
+    # Explicit smoke settings; production defaults and learning equations stay intact.
+    return td3_runner.readParser(['--noise_sigma', '.03', '--batch_size', '2', '--w', '2',
+        '--T', '4', '--pi_lr', '.0005', '--q_lr', '.001', '--replay_size', '32', '--run_id', run_id])
+
+
+class TestHybridTraining(unittest.TestCase):
+    def setUp(self):
+        os.chdir(REPO)
+        torch.set_num_threads(1)
+        torch.manual_seed(123456)
+        np.random.seed(123456)
+        root = REPO / 'codex_tests/artifacts/hybrid'
+        root.mkdir(parents=True, exist_ok=True)
+        self.folder = Path(tempfile.mkdtemp(prefix='unit_', dir=root))
+        run_id = '../codex_tests/artifacts/hybrid/' + self.folder.name
+        self.args = arguments(run_id)
+        self.env = CircuitEnv(run_id=run_id)
+        self.env.max_steps_per_episode = 2  # Mocked unit tests only.
+        self.env.action_space.seed(self.args.seed)
+        self.env.simulation_engine.output_netlists_folder = str(self.folder / 'netlists')
+        self.env.simulation_engine.output_files_folder = str(self.folder / 'outputs')
+        self.simulator = patch.object(self.env.simulation_engine, 'simulate', return_value=0).start()
+        patch.object(self.env.simulation_engine, 'measure_metrics', return_value=dict(self.env.dict_targets)).start()
+        patch('circuit_env.plotLearning').start()
+        patch('circuit_env.plot_running_maximum').start()
+        patch('td3_runner.export_evaluation').start()
+        self.addCleanup(patch.stopall)
+        self.agent = TD3(7, self.env.action_space, self.args)
+        self.buffer = ReplayBuffer(7, 20, max_size=32)
+        self.adapter = CircuitAdapter(self.env, REPO)
+        self.archive = CandidateArchive(self.folder / 'candidates.jsonl', self.adapter.context()['problem_id'])
+
+    def candidate(self, res=6100.):
+        return self.archive.add(dict(PARAMETERS, res=res), self.adapter.assess(dict(self.env.dict_targets)),
+            'LLM', 'MOCK-ONLY', {'completed': True, 'simulator': 'ngspice', 'simulation_id': 'MOCK-' + str(res)})
+
+    def test_standalone_updates_critics_actor_and_targets(self):
+        before = {name: [p.detach().clone() for p in getattr(self.agent, name).parameters()]
+                  for name in ('actor', 'critic', 'actor_target', 'critic_target')}
+        with patch.object(self.agent, 'update_parameters', wraps=self.agent.update_parameters) as update:
+            steps = td3_runner.warmup_exploration(self.args, self.env, self.buffer, self.agent)
+            update.assert_not_called()
+            self.assertEqual(steps, 2)
+            td3_runner.train_policy(self.args, self.buffer, self.agent, steps)
+            for a, b in zip(before['actor'], self.agent.actor.parameters()):
+                self.assertTrue(torch.equal(a, b))  # Delayed policy update.
+            td3_runner.train_policy(self.args, self.buffer, self.agent, steps + 1)
+            self.assertEqual(update.call_count, 2)
+        for name, original in before.items():
+            actual = list(getattr(self.agent, name).parameters())
+            self.assertTrue(any(not torch.equal(a, b) for a, b in zip(original, actual)), name)
+            self.assertTrue(all(torch.isfinite(p).all() for p in actual))
+        self.assertEqual(len(self.agent.actor_optimizer.state), 6)
+        action = self.agent.select_action(self.env.reset())
+        self.assertEqual(action.shape, (20,))
+        self.assertTrue(np.isfinite(action).all())
+        self.assertTrue((np.abs(action) <= 1).all())
+
+    def test_disabled_runner_retains_whole_episode_warmup(self):
+        self.args.w = 1
+        progress = td3_runner.train(self.args, self.env, self.agent, self.buffer)
+        self.assertEqual(progress, {'warmup_steps': 2, 'training_steps': 2})
+        self.assertEqual(self.buffer.size, 4)
+        self.assertEqual(self.agent.total_it, 2)
+        self.assertEqual(self.env.counter, 6)  # Four steps, two measured resets.
+
+    def test_assisted_warmup_fills_only_remaining_random_slots_without_learning(self):
+        record = self.candidate()
+        hybrid = HybridReplay(self.archive.path, warmup=1)
+        with patch.object(self.agent, 'update_parameters', wraps=self.agent.update_parameters) as update:
+            steps = td3_runner.warmup_exploration(self.args, self.env, self.buffer, self.agent, hybrid)
+            update.assert_not_called()
+        self.assertEqual(steps, 2)
+        self.assertEqual(self.env.env_steps, 1)
+        self.assertEqual(self.simulator.call_count, 2)  # Reset and one random action only.
+        self.assertEqual(self.buffer.size, 2)
+        self.assertEqual(hybrid.seen, {record['design_id']})
+        np.testing.assert_array_equal(self.buffer.action[0], physical_to_action(record['parameters'], self.env))
+
+    def test_new_candidate_at_checkpoint_preserves_live_state_weights_and_optimizers(self):
+        first = self.candidate()
+        self.args.T = 6
+        hybrid = HybridReplay(self.archive.path, warmup=1, after=3, count=1)
+        original_checkpoint = hybrid.checkpoint
+        def checkpoint(steps, env, buffer):
+            if steps == 3:
+                self.candidate(6200.)  # Simulate an archive appended between iterations.
+            fields = ('episode_steps', 'param_values', 'cur_norm_specs', 'real_specs', 'counter', 'env_steps')
+            state = deepcopy({name: getattr(env, name) for name in fields})
+            networks = ('actor', 'critic', 'actor_target', 'critic_target')
+            weights = {name: deepcopy(getattr(self.agent, name).state_dict()) for name in networks}
+            optimizers = ('actor_optimizer', 'critic_optimizer')
+            previous = {name: deepcopy(getattr(self.agent, name).state_dict()) for name in optimizers}
+            calls = self.simulator.call_count
+            original_checkpoint(steps, env, buffer)
+            self.assertEqual({name: getattr(env, name) for name in fields}, state)
+            self.assertEqual(calls, self.simulator.call_count)
+            for name in networks:
+                for key, value in getattr(self.agent, name).state_dict().items():
+                    self.assertTrue(torch.equal(value, weights[name][key]))
+            for name in optimizers:
+                actual = getattr(self.agent, name).state_dict()
+                self.assertEqual(actual['param_groups'], previous[name]['param_groups'])
+                for parameter, values in actual['state'].items():
+                    for key, value in values.items():
+                        self.assertTrue(torch.equal(value, previous[name]['state'][parameter][key]))
+        with patch.object(hybrid, 'checkpoint', side_effect=checkpoint):
+            result = td3_runner.train(self.args, self.env, self.agent, self.buffer, hybrid)
+        self.assertEqual(result, {'warmup_steps': 2, 'training_steps': 4})
+        self.assertEqual([e['injected'] for e in hybrid.events], [1, 1])
+        self.assertEqual(hybrid.events[1]['skipped_duplicates'], 1)
+        self.assertIn(first['design_id'], hybrid.seen)
+        self.assertEqual(len(hybrid.seen), 2)
+        self.assertEqual(self.buffer.size, 7)  # Two imports, one random, four policy samples.
+        self.assertEqual(self.agent.total_it, 4)
+        self.assertEqual(self.env.counter, 8)
+
+    def test_terminal_checkpoint_waits_for_reset_then_runs_once(self):
+        self.candidate()
+        self.args.w, self.args.T = 0, 4
+        hybrid = HybridReplay(self.archive.path, after=2)
+        td3_runner.train(self.args, self.env, self.agent, self.buffer, hybrid)
+        self.assertEqual(len(hybrid.events), 1)
+        self.assertEqual(hybrid.events[0]['training_steps'], 2)
+        self.assertEqual(hybrid.events[0]['injected'], 1)
+        # The import followed the reset, rather than using the previous terminal state.
+        self.assertEqual(self.buffer.not_done[2, 0], 1.)
+
+    def test_missing_and_rejected_candidates_fall_back_to_random_warmup(self):
+        record = self.candidate()
+        self.archive.path.write_text(json.dumps(dict(record, problem_id='old-targets')) + '\n')
+        hybrid = HybridReplay(self.archive.path, warmup=2)
+        td3_runner.warmup_exploration(self.args, self.env, self.buffer, self.agent, hybrid)
+        self.assertEqual(hybrid.events[0]['injected'], 0)
+        self.assertEqual(len(hybrid.events[0]['rejected']), 1)
+        self.assertEqual(self.env.env_steps, 2)
+        self.assertEqual(self.agent.total_it, 0)
+
+    def test_cli_validates_options_and_forwards_hyperparameters(self):
+        self.archive.path.touch()
+        flags = ['--noise_sigma', '.03', '--batch_size', '2', '--w', '2', '--T', '4',
+                 '--pi_lr', '.0005', '--q_lr', '.001', '--llm-archive', str(self.archive.path),
+                 '--llm-warmup', '1', '--llm-after', '1']
+        with patch('llm.train_td3.run_training') as run:
+            main(flags)
+            args, hybrid = run.call_args.args
+            self.assertEqual((args.noise_sigma, args.pi_lr, args.q_lr), (.03, .0005, .001))
+            self.assertEqual((hybrid.warmup_limit, hybrid.after), (1, 1))
+        with self.assertRaises(SystemExit):
+            main(flags + ['--llm-warmup', '3'])
+
+
+@unittest.skipUnless(os.environ.get('CAD_HYBRID_REAL') == '1', 'Set CAD_HYBRID_REAL=1 for ngspice smoke')
+class TestRealHybrid(unittest.TestCase):
+    def test_real_standalone_and_hybrid(self):
+        """Real default ten-step episodes, two SDK-supplied MCP designs, no LLM calls."""
+        os.chdir(REPO)
+        torch.set_num_threads(1)
+        root = REPO / 'codex_tests/artifacts/hybrid'
+        root.mkdir(parents=True, exist_ok=True)
+        folder = Path(tempfile.mkdtemp(prefix='real_', dir=root))
+        from codex_tests.test_mcp_server import server
+        archive = CandidateArchive(folder / 'llm_candidates.jsonl', server.context['problem_id'])
+        before = server.env.counter
+        with patch.object(server, 'archive', archive), patch.object(server, 'MAX_SIMULATIONS', before + 2):
+            for res in (6100., 6200.):
+                result = server.simulate_design(dict(PARAMETERS, res=res), 'SDK-supplied integration smoke; not model-generated.')
+                self.assertTrue(result['success'], result)
+        source_calls = server.env.counter - before
+        results = {}
+        for mode in ('standalone', 'hybrid'):
+            args = arguments('../codex_tests/artifacts/hybrid/' + folder.name + '_' + mode)
+            args.T = 12  # Original runner finishes whole ten-step episodes.
+            real_env = CircuitEnv(run_id=args.run_id)
+            real_env.action_space.seed(args.seed)  # Test reproducibility, not a production change.
+            real_env.simulation_engine.output_netlists_folder = str(folder / mode / 'netlists')
+            real_env.simulation_engine.output_files_folder = str(folder / mode / 'outputs')
+            hybrid = HybridReplay(archive.path, warmup=1, after=2, count=1) if mode == 'hybrid' else None
+            with patch('td3_runner.CircuitEnv', return_value=real_env):
+                report = run_training(args, hybrid, folder / (mode + '.json'))
+            self.assertEqual(report['critic_updates'], 10)
+            self.assertEqual(report['injected_llm_experiences'], 2 if hybrid else 0)
+            self.assertEqual(report['random_warmup_steps'], 1 if hybrid else 10)
+            self.assertTrue(np.isfinite(real_env.reward_history).all())
+            self.assertTrue(all(np.isfinite(list(real_env.cur_norm_specs.values()))))
+            if hybrid:
+                self.assertEqual([e['injected'] for e in hybrid.events], [1, 1])
+                self.assertEqual(report['td3_total_evaluations'], 13)
+            else:
+                self.assertEqual(report['td3_total_evaluations'], 22)
+            results[mode] = report
+        results['source_mcp_evaluations'] = source_calls
+        results['total_actual_evaluations'] = source_calls + sum(results[m]['td3_total_evaluations'] for m in ('standalone', 'hybrid'))
+        results['model_calls'] = 0
+        (folder / 'smoke.json').write_text(json.dumps(results, indent=2, allow_nan=False))
+        print('REAL HYBRID EVIDENCE:', folder / 'smoke.json')
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

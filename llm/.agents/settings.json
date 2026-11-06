@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": ["mcp(cad-simulator/simulate_design)", "mcp(cad-simulator/evaluate_candidate)",
+              "mcp(cad-simulator/get_problem)", "mcp(cad-simulator/get_candidates)",
+              "mcp(cad-simulator/probe_parameters)", "mcp(cad-simulator/warmup)",
+              "mcp(cad-simulator/train)"],
+    "deny": ["command(*)", "write_file(*)", "read_url(*)", "execute_url(*)"]
+  }
+}

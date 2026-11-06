@@ -1,0 +1,11 @@
+{
+  "circuit_env.py": "55ea7d706461b0f3848826081fd347128477579f39db97124e314306f881140c",
+  "ngspice_interface/dut_testbench.py": "c9fc380ca9a4f14a07430f5ba977f6b9f36029a32dc1ee0019a0953bb27dbb36",
+  "ngspice_interface/ngspice_wrapper.py": "37a8ae1454c59e8f566b5a6e8c2850a0568b2b267936191531ca9c9bd4e47390",
+  "ngspice_interface/files/input_netlists/TwoStage.cir": "6abad8e81f65300bb0065e3b5b3a3013053915a8fd6cf5fafcc9ba6d555bfcad",
+  "ngspice_interface/files/yaml_files/TwoStage.yaml": "e1075bbed5c0602f864ff97647c386c42e919314462ff03004a6f36642a539c9",
+  "ngspice_interface/unit_test.py": "a190f6c59e3e7ed26dcb8cacec5c98bd75732e6aa68e0d6a519c1406e4d01e51",
+  "td3/agent.py": "d49813f929f351a5934d2242e9065fc155bed3f308f3a800e8e16c3f286db65c",
+  "td3/buffer.py": "73433cbde15918c9302a147d81220d23551bfbdc4219a8bd3174767ea95125ce",
+  "td3_runner.py": "8a40e14844e56ef35905e5c3a64a3fc6814065394554d764d6450e1668733998"
+}

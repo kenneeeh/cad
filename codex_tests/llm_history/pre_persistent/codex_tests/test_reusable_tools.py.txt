@@ -1,0 +1,176 @@
+"""Current TD3 data exchange and thin-runner tests. No model or ngspice calls."""
+from copy import deepcopy
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / 'llm'))
+from codex_tests.test_mcp_server import server, PARAMETERS
+from candidates import CandidateArchive
+from circuit_adapter import setup_id
+from td3_candidates import export_td3_candidate, import_td3_candidates
+import run_experiment as runner
+FIXTURE = json.loads((HERE / 'fixtures/td3_evaluated_fixture.jsonl').read_text())
+
+
+class TestReusableTools(unittest.TestCase):
+    def setUp(self):
+        server.env.counter = 0
+        root = HERE / 'artifacts/llm_simple'
+        root.mkdir(parents=True, exist_ok=True)
+        self.folder = Path(tempfile.mkdtemp(prefix='runner_', dir=root))
+        self.archive = CandidateArchive(self.folder / 'archive.jsonl', server.context['problem_id'])
+        self.fixture = deepcopy(FIXTURE)
+        self.fixture['problem_id'] = server.context['problem_id']
+        self.source = self.folder / 'td3.jsonl'
+        self.source.write_text(json.dumps(self.fixture)+'\n')
+
+    def test_simple_setup_id_changes_with_yaml(self):
+        self.assertTrue(setup_id(REPO).startswith('TwoStage-rising-'))
+        yaml = self.folder / 'ngspice_interface/files/yaml_files/TwoStage.yaml'
+        yaml.parent.mkdir(parents=True)
+        yaml.write_bytes((REPO / 'ngspice_interface/files/yaml_files/TwoStage.yaml').read_bytes())
+        self.assertEqual(setup_id(self.folder), setup_id(REPO))
+        yaml.write_text(yaml.read_text().replace('15.0', '16.0'))
+        self.assertNotEqual(setup_id(self.folder), setup_id(REPO))
+
+    def test_td3_import_keeps_original_values_and_stable_id_without_simulation(self):
+        with patch.object(server.env, 'simulate') as simulate:
+            first = import_td3_candidates(self.source, server.adapter, self.archive)
+            second = import_td3_candidates(self.source, server.adapter, self.archive)
+            simulate.assert_not_called()
+        self.assertEqual(first['rejected'], [])
+        self.assertEqual(first['accepted_design_ids'], second['accepted_design_ids'])
+        record = self.archive.get(first['accepted_design_ids'][0])
+        self.assertEqual(record['design_id'], self.fixture['design_id'])
+        self.assertEqual(record['reward'], self.fixture['reward'])
+        self.assertEqual(record['hard_satisfied'], self.fixture['hard_satisfied'])
+        self.assertEqual(record['parameters'], self.fixture['parameters'])
+        self.assertNotIn('original', record)
+        self.assertEqual(len(self.archive.records()), 1)
+
+    def test_td3_import_rejects_wrong_setup_proposals_and_inconsistent_results(self):
+        cases = [dict(self.fixture, problem_id='old-extraction'), dict(self.fixture, specs={}),
+                 dict(self.fixture, reward=999.), dict(self.fixture, hard_satisfied=True),
+                 dict(self.fixture, metadata={'completed': False}), {'action': [0.]*20}]
+        self.source.write_text(''.join(json.dumps(r)+'\n' for r in cases))
+        result = import_td3_candidates(self.source, server.adapter, self.archive)
+        self.assertEqual(result['accepted_design_ids'], [])
+        self.assertEqual(len(result['rejected']), len(cases))
+        self.assertEqual(self.archive.records(), [])
+
+    def test_td3_export_uses_same_archive_record_and_no_simulation(self):
+        env = server.env
+        env.counter = 1
+        with patch.object(env, 'param_values', PARAMETERS, create=True),              patch.object(env, 'real_specs', dict(env.dict_targets), create=True),              patch.object(env.simulation_engine, 'circuit_params', PARAMETERS, create=True),              patch.object(env.simulation_engine, 'random_name', 'mock-completed', create=True),              patch.object(env, 'simulate') as simulate:
+            output = export_td3_candidate(env, .3, {'hard_satisfied': True}, self.folder / 'export.jsonl')
+            simulate.assert_not_called()
+        record = json.loads(output.read_text())
+        self.assertEqual(record['parameters'], PARAMETERS)
+        self.assertEqual(record['source'], 'TD3')
+        self.assertEqual(set(record['specs']), set(env.dict_targets))
+        result = import_td3_candidates(output, server.adapter, self.archive)
+        self.assertEqual(result['rejected'], [])
+        self.assertEqual(self.archive.get(record['design_id']), record)
+
+    def run_fake(self, *, status='SUCCESS', code=0, failure=None, td3=False):
+        workspace = self.folder / 'llm'
+        workspace.mkdir()
+        for name in ('experiment.md', 'initial_design.json'):
+            (workspace / name).write_bytes((REPO / 'llm' / name).read_bytes())
+        if td3:
+            base = self.archive.add(PARAMETERS, server.adapter.assess(dict(server.env.dict_targets)),
+                'TD3', 'MOCK-TD3', {'completed': True, 'simulator': 'ngspice', 'simulation_id': 'mock-base'})
+        else:
+            base = None
+
+        def fake_cli(command, **kwargs):
+            self.assertEqual(command[command.index('--output-format')+1], 'json')
+            self.assertNotIn('--json-schema', command)
+            path = Path(kwargs['env']['CAD_ARCHIVE_PATH'])
+            data = CandidateArchive(path, server.context['problem_id'])
+            assessment = server.adapter.assess(dict(server.env.dict_targets, gain=190. if td3 else 200.))
+            candidate = data.add(PARAMETERS, assessment, 'LLM', kwargs['env']['CAD_RUN_ID'],
+                                 {'completed': True, 'simulator': 'ngspice', 'simulation_id': 'mock-new'}, hypothesis='MOCK only')
+            audit = Path(kwargs['env']['CAD_RUNS_DIR']) / 'session_mock'
+            audit.mkdir()
+            (audit / 'calls.jsonl').write_text(json.dumps({'result': {'simulation_count': 1}})+'\n')
+            if failure == 'timeout':
+                raise subprocess.TimeoutExpired(command, 330)
+            payload = {'status': status, 'response': 'Brief engineering result.', 'usage': {'input_tokens': 10, 'output_tokens': 2}}
+            if status != 'SUCCESS':
+                payload['error'] = 'Model capacity error'
+            return SimpleNamespace(returncode=code, stdout='broken JSON' if failure == 'json' else json.dumps(payload), stderr='CLI failed')
+
+        argv = ['run_experiment.py', 'td3_refine' if td3 else 'multi_agent', '--budget', '1']
+        if td3:
+            argv += ['--archive', str(self.archive.path)]
+        with patch.object(runner, 'HERE', workspace), patch.object(runner, 'setup_id', return_value=server.context['problem_id']),              patch.object(sys, 'argv', argv), patch.object(runner.subprocess, 'run', side_effect=fake_cli),              patch('sys.stdout', io.StringIO()):
+            result = runner.main()
+        run = next((workspace / 'runs').iterdir())
+        summary = json.loads((run / 'summary.json').read_text())
+        self.assertEqual({p.name for p in run.iterdir() if p.is_file()} - {'candidates.jsonl'}, {'summary.json'})
+        return result, summary, base
+
+    def test_runner_selects_measured_best_and_reports_tokens(self):
+        result, summary, _ = self.run_fake()
+        self.assertEqual(result, 0)
+        self.assertEqual(summary['ngspice_attempts'], 1)
+        self.assertEqual(summary['best']['reward'], .3)
+        self.assertEqual(summary['usage'], {'input_tokens': 10, 'output_tokens': 2})
+        self.assertEqual(len(summary['evaluated_design_ids']), 1)
+
+    def test_runner_keeps_better_imported_td3_design(self):
+        result, summary, base = self.run_fake(td3=True)
+        self.assertEqual(result, 0)
+        self.assertEqual(summary['best']['design_id'], base['design_id'])
+
+    def test_cli_error_never_becomes_success_even_with_useful_measurements(self):
+        result, summary, _ = self.run_fake(status='ERROR')
+        self.assertEqual(result, 1)
+        self.assertFalse(summary['success'])
+        self.assertEqual(summary['cli_status'], 'ERROR')
+        self.assertIsNotNone(summary['best'])
+        self.assertEqual(summary['error'], 'Model capacity error')
+
+    def test_nonzero_cli_exit_preserves_results_but_reports_failure(self):
+        result, summary, _ = self.run_fake(code=3)
+        self.assertEqual(result, 1)
+        self.assertFalse(summary['success'])
+        self.assertEqual(summary['error'], 'CLI failed')
+        self.assertIsNotNone(summary['best'])
+
+    def test_timeout_preserves_measured_best_and_attempt_count(self):
+        result, summary, _ = self.run_fake(failure='timeout')
+        self.assertEqual(result, 1)
+        self.assertEqual(summary['cli_status'], 'ERROR')
+        self.assertEqual(summary['ngspice_attempts'], 1)
+        self.assertIsNotNone(summary['best'])
+
+    def test_bad_cli_json_preserves_measurements(self):
+        result, summary, _ = self.run_fake(failure='json')
+        self.assertEqual(result, 1)
+        self.assertEqual(summary['cli_status'], 'ERROR')
+        self.assertIsNotNone(summary['best'])
+
+    def test_fixture_only_td3_archive_does_not_launch_model(self):
+        import_td3_candidates(self.source, server.adapter, self.archive)
+        with patch.object(sys, 'argv', ['run_experiment.py', 'td3_refine', '--archive', str(self.archive.path)]),              patch.object(runner.subprocess, 'run') as model, patch('sys.stderr', io.StringIO()):
+            with self.assertRaises(SystemExit) as error:
+                runner.main()
+            self.assertEqual(error.exception.code, 2)
+            model.assert_not_called()
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

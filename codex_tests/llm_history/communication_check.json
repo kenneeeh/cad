@@ -1,0 +1,92 @@
+{
+  "run": "agents_check_z7s2jlro",
+  "summary": {
+    "mode": "agents_check",
+    "model": "gemini-3.8-flash-low",
+    "cli_status": "ERROR",
+    "cli_exit_code": 0,
+    "simulation_budget": 0,
+    "ngspice_attempts": 0,
+    "budget_respected": true,
+    "server_sessions_with_evaluations": 0,
+    "wall_clock_s": 44.006,
+    "cli_duration_s": 41.3359706,
+    "summed_tool_runtime_s": 0,
+    "usage": {
+      "input_tokens": 52606,
+      "output_tokens": 2844,
+      "thinking_tokens": 0,
+      "cache_read_tokens": 0,
+      "total_tokens": 55450
+    },
+    "llm_calls": null,
+    "user_turns": 1,
+    "credit_usage": null,
+    "usage_note": "num_turns is user turns, not backend LLM calls. Missing credits/call counts are unavailable.",
+    "best_simulation_id": null,
+    "best_reward": null,
+    "best_is_feasible": null,
+    "best_feasible_simulation_id": null,
+    "model_best_matches_logged_reward": null,
+    "reported_consultations": 3,
+    "consulted_agents": [
+      "circuit-diagnostician",
+      "experiment-designer",
+      "optimization-strategist"
+    ],
+    "native_delegation_steps": 3,
+    "consultation_note": "Consultation summaries are agent-reported; tool_steps stores native handoff metadata. Backend LLM-call counts are unavailable.",
+    "missing_candidate_decisions": 0
+  },
+  "final_audit": {
+    "best_simulation_id": "",
+    "consultations": [
+      {
+        "advice": "Sentinel CHECK-42 identified. Tool audit passed (simulate_design, shell, write tools absent). Ranked hard violations: slewRate (12 V/us vs >=15 V/us), gain (190 V/V vs >=200 V/V). phm is tight (+2 deg margin). Uncertainty noted due to absent operating-point measurements.",
+        "agent": "circuit-diagnostician",
+        "agent_id": "51611cbf-17e7-457e-804a-74f7b6cf063e",
+        "skills": [
+          "opamp-physics"
+        ],
+        "task": "Audit tools; rank violations versus margins, describe uncertainty, and identify sentinel CHECK-42 on synthetic packet.",
+        "tools": [
+          "default_api:manage_task",
+          "default_api:send_message",
+          "default_api:list_resources",
+          "default_api:read_resource"
+        ]
+      },
+      {
+        "advice": "Sentinel CHECK-42 confirmed. Tool audit passed (simulate_design, shell, write tools absent). Confirmed received 20 parameters. Proposed grid-valid advisory candidate: mn4=16.0, ln1=1.8e-07 targeting slewRate and gain bottlenecks without running simulation.",
+        "agent": "experiment-designer",
+        "agent_id": "b504f518-6fe2-44af-a242-c22a18d273c6",
+        "skills": [
+          "sizing-experiments"
+        ],
+        "task": "Audit tools; confirm parameter reception and propose one grid-valid advisory candidate without simulation.",
+        "tools": [
+          "default_api:manage_task",
+          "default_api:send_message",
+          "default_api:list_resources",
+          "default_api:read_resource"
+        ]
+      },
+      {
+        "advice": "Sentinel CHECK-42 confirmed. Tool audit passed (simulation, shell, write tools absent). Remaining budget is 0 so no physical experiments can be scheduled or executed; candidate evaluation is halted while preserving records.",
+        "agent": "optimization-strategist",
+        "agent_id": "52b67365-3859-40e1-9a15-2efa5950161c",
+        "skills": [],
+        "task": "Audit tools and explain why no experiment should run at budget 0.",
+        "tools": [
+          "default_api:manage_task",
+          "default_api:send_message",
+          "default_api:list_resources",
+          "default_api:read_resource"
+        ]
+      }
+    ],
+    "evaluations": [],
+    "selection_reason": "Access check passed: all 3 specialists confirmed absence of simulation, shell, and write tools, verified sentinel CHECK-42, and completed tasks without simulation under budget 0."
+  },
+  "cli_error": "API error (attempt 1): RESOURCE_EXHAUSTED (code 429): You have exhausted your capacity on this model. Resets in 0s."
+}

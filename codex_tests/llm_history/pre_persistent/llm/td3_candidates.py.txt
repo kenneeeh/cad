@@ -1,0 +1,100 @@
+"""Save/import completed TD3 evaluations using the same candidate JSONL as MCP."""
+import argparse
+from contextlib import redirect_stdout
+import json
+import math
+from pathlib import Path
+import re
+import sys
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
+if __package__:
+    from .circuit_adapter import CircuitAdapter
+    from .candidates import CandidateArchive
+else:
+    from circuit_adapter import CircuitAdapter
+    from candidates import CandidateArchive
+
+
+def checked_record(record, adapter):
+    if record.get('source') != 'TD3' or not record.get('design_id') or not record.get('run_id'):
+        raise ValueError('Expected an evaluated TD3 candidate with design/run IDs')
+    if record.get('problem_id') != adapter.context()['problem_id']:
+        raise ValueError('Different/old TwoStage setup; re-evaluate rather than relabel historical results')
+    metadata = record.get('metadata', {})
+    if metadata.get('completed') is not True or metadata.get('simulator') != 'ngspice' or not metadata.get('simulation_id'):
+        raise ValueError('Missing completed ngspice evaluation; an actor proposal is not a measured design')
+    if record.get('units') != adapter.units:
+        raise ValueError('Missing or incorrect specification units')
+    adapter.validate_parameters(record['parameters'])
+    assessment = adapter.assess(record['specs'])
+    reward = record['reward']
+    if isinstance(reward, bool) or not math.isfinite(reward) or not math.isclose(reward, assessment['reward'], rel_tol=1e-9, abs_tol=1e-10):
+        raise ValueError('Stored reward disagrees with CircuitEnv')
+    if type(record['hard_satisfied']) is not bool or record['hard_satisfied'] != assessment['hard_satisfied']:
+        raise ValueError('Stored feasibility disagrees with measured hard constraints')
+    assessment['reward'] = reward  # Preserve the original, checked value without a duplicate copy.
+    return assessment
+
+
+def export_td3_candidate(env, reward, info, path=None, phase='policy'):
+    """Call after a successful env.step. No action selection, training or simulation here."""
+    adapter = CircuitAdapter(env, REPO)
+    simulation_id = getattr(env.simulation_engine, 'random_name', None)
+    if env.counter < 1 or not simulation_id or env.param_values != env.simulation_engine.circuit_params:
+        raise ValueError('No matching completed physical evaluation to export')
+    adapter.validate_parameters(env.param_values)
+    assessment = adapter.assess(env.real_specs)
+    if not math.isclose(reward, assessment['reward'], rel_tol=1e-9, abs_tol=1e-10) or info['hard_satisfied'] != assessment['hard_satisfied']:
+        raise ValueError('Step reward/feasibility does not match its measurements')
+    assessment['reward'] = float(reward)
+    run_name = re.sub(r'[^A-Za-z0-9_.-]', '_', str(env.run_id))
+    output = Path(path) if path is not None else HERE / 'runs' / ('td3_' + run_name) / 'candidates.jsonl'
+    CandidateArchive(output, adapter.context()['problem_id']).add(env.param_values, assessment, 'TD3', env.run_id,
+        {'completed': True, 'simulator': 'ngspice', 'simulation_id': simulation_id,
+         'simulation_count': env.counter, 'phase': phase})
+    return output
+
+
+def import_td3_candidates(path, adapter, archive):
+    accepted, rejected = [], []
+    existing = {r['design_id']: r for r in archive.records()}
+    with Path(path).open(encoding='utf-8') as source:
+        for number, line in enumerate(source, 1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+                assessment = checked_record(record, adapter)
+                if record['design_id'] in existing:
+                    if existing[record['design_id']] != record:
+                        raise ValueError('Conflicting data for an existing design ID')
+                else:
+                    stored = archive.add(record['parameters'], assessment, 'TD3', record['run_id'], record['metadata'],
+                        record.get('parent_id'), record.get('hypothesis', ''), design_id=record['design_id'])
+                    existing[stored['design_id']] = stored
+                accepted.append(record['design_id'])
+            except (ValueError, TypeError, KeyError, AttributeError) as error:
+                rejected.append({'line': number, 'error': str(error)})
+    return {'accepted_design_ids': accepted, 'rejected': rejected, 'simulations': 0}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('path', type=Path, help='evaluated TD3 candidate JSONL')
+    parser.add_argument('--archive', type=Path, default=HERE / 'runs/candidates.jsonl')
+    args = parser.parse_args()
+    sys.path.insert(0, str(REPO))
+    import os
+    os.chdir(REPO)
+    from circuit_env import CircuitEnv
+    with redirect_stdout(sys.stderr):
+        adapter = CircuitAdapter(CircuitEnv(), REPO)
+    result = import_td3_candidates(args.path, adapter, CandidateArchive(args.archive, adapter.context()['problem_id']))
+    print(json.dumps(result, indent=2))
+    return 1 if result['rejected'] else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

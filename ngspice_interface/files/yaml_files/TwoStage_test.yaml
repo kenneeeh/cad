@@ -1,0 +1,55 @@
+circuit_name: "TwoStage"
+technology: "45nm"
+
+params:
+  mp1:  !!python/tuple [1, 25, 1]
+  wp1:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  lp1:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  mn1:  !!python/tuple [1, 25, 1]
+  wn1:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  ln1:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  mp3:  !!python/tuple [1, 25, 1]
+  wp3:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  lp3:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  mn3:  !!python/tuple [1, 25, 1]
+  wn3:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  ln3:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  mn4:  !!python/tuple [1, 25, 1]
+  wn4:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  ln4:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  mn5:  !!python/tuple [1, 25, 1]
+  wn5:  !!python/tuple [2.50e-07, 30.0e-07, 2.50e-07]
+  ln5:  !!python/tuple [45.0e-09, 225.0e-09, 45.0e-09]
+  cap:   !!python/tuple [!!float 0.1e-12, !!float 10.0e-12, !!float 0.1e-12]
+  res:   !!python/tuple [!!float 0, !!float 9.9e+3, !!float 100]
+
+targets:
+  area: !!float 2.0e-9
+  current: !!float 2.0e-4
+  gain: !!float 200
+  noise: !!float 3.0e-2
+  phm: !!float 60.0
+  slewRate: !!float 15.0
+  ugbw: !!float 1.0e+6
+
+hard_constraints: !!python/tuple ['gain', 'noise', 'phm', 'slewRate', 'ugbw']
+optimization_targets: !!python/tuple ['area', 'current']
+
+spec_weights:
+  area: !!float 1.0
+  current: !!float 1.0
+  gain: !!float 1.0
+  noise: !!float 1.0
+  phm: !!float 1.0
+  slewRate: !!float 1.0
+  ugbw: !!float 1.0
+
+circuit_multipliers:
+  mn1: !!int 2
+  mp1: !!int 2
+  mp3: !!int 1
+  mn3: !!int 1
+  mn4: !!int 1
+  mn5: !!int 1
+  cap: !!int 1
+  res: !!int 1

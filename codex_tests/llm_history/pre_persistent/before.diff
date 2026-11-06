@@ -1,0 +1,1122 @@
+diff --git a/llm/.gitignore b/llm/.gitignore
+index 3fa0888..2fcb51f 100644
+--- a/llm/.gitignore
++++ b/llm/.gitignore
+@@ -1,3 +1,2 @@
+-.tools/
+ runs/
+ __pycache__/
+diff --git a/llm/GEMINI.md b/llm/GEMINI.md
+index 9633d49..98debba 100644
+--- a/llm/GEMINI.md
++++ b/llm/GEMINI.md
+@@ -1,41 +1,17 @@
+-# CAD circuit-sizing agent
++# CAD sizing workflow
+ 
+-Act as one circuit-design agent. Use only the cad-simulator MCP tool
+-simulate_design(parameters, hypothesis) to evaluate physical candidate designs.
+-Do not edit source/configuration, invoke ngspice through the shell, or delegate.
+-The experiment supplies its starting design, budget, objective and stop conditions.
+-Respect the server's remaining budget; restarting the server resets its per-process
+-counter and is not a way to obtain extra experiment calls.
++The coordinator runs a native team with circuit-diagnostician, experiment-designer
++and optional optimization-strategist. Only the coordinator has simulation access.
++Specialists must use MCP/write-disabled invocations, no shell or filesystem edits.
++Use the same inherited model; do not create additional agents or impersonate failures.
+ 
+-Circuit: 45 nm two-stage Miller opamp, NMOS differential input, PMOS mirror load,
+-PMOS second stage with NMOS current sink, and series R-C Miller compensation.
+-mn1 is the input pair; mp1 the mirror load; mn3 the diode-connected bias reference;
+-mn4 the input-stage tail sink; mp3 the second-stage amplifying device; mn5 the
+-second-stage current sink. TT process, VDD=1.2 V, temperature=27 C.
+-Miller capacitance trades speed against compensation. Current, device geometry,
+-load and bias headroom interact; treat each proposed improvement as a hypothesis.
++Use get_problem for current physical grids, units, targets and budget. Use archive
++IDs and absolute changes for refinement. Python handles validation, reward,
++feasibility, differences and ranking. A positive reward does not prove feasibility.
++Zero UGBW/PHM is a measured penalized fallback, not a simulator failure.
+ 
+-Supply all 20 physical parameters on every call (inclusive YAML bounds, SI units):
+-- mp1, mn1, mp3, mn3, mn4, mn5: [1,25], step 1.
+-- wp1, wn1, wp3, wn3, wn4, wn5: [2.5e-7,3e-6] m, step 2.5e-7 m.
+-- lp1, ln1, lp3, ln3, ln4, ln5: [45e-9,225e-9] m, step 45e-9 m.
+-- cap: [0.1e-12,10e-12] F, step 0.1e-12 F.
+-- res: [0,9900] ohm, step 100 ohm.
+-Use physical parameters, not normalized actions. Inputs are rejected, not repaired.
+-
+-Hard requirements: gain >=200 V/V, noise <=0.03 V RMS, phm >=60 deg,
+-slewRate >=15 V/us, ugbw >=1e6 Hz. Area=2e-9 m^2 and current=2e-4 A are
+-optimization scales; smaller area/current are better. Python calculates the
+-existing course reward. success=true means finite valid measurements, while
+-hard_satisfied=true means all five hard constraints passed. UGBW=0 and PHM=0
+-are intentional penalized fallbacks. Treat explicit simulation failures as failures.
+-Tool success, finite measurements, feasibility and agreement with TA references
+-are different claims. Known slew-rate extraction and TA target discrepancies
+-remain; do not describe these experiments as TA-certified measurement validation.
+-
+-Before each candidate, supply a one-sentence engineering hypothesis through the
+-optional tool argument. After evaluation, cite actual metrics to assess it.
+-Preserve unsuccessful designs in the record. Keep explanations short and traceable;
+-do not provide or store private chain-of-thought. Reuse this context and a short
+-running summary instead of reloading source, netlists, waveforms or transcripts.
+-Report token/credit information only if actually available.
++Do not edit source/configuration, run shell/browser/TD3, add analysis tools or
++restart the simulator to renew its budget. Reuse compact candidate summaries and
++idle specialists. Separate physical hypotheses from measured evidence; do not
++invent operating points or claim TA/PVT validation. Keep short public engineering
++justifications, never private chain-of-thought. Report errors and actual usage.
+diff --git a/llm/README.md b/llm/README.md
+index d4c72d5..48823b3 100644
+--- a/llm/README.md
++++ b/llm/README.md
+@@ -1,143 +1,220 @@
+-# LLM circuit-sizing harness
++# TwoStage LLM sizing
+ 
+-One local MCP server exposes the existing full-circuit simulator. Antigravity is
+-one sizing agent; normalization, reward, validation and ranking are Python code.
+-TD3, the environment, measurements and YAML targets are unchanged.
++This course project uses native Antigravity agents to choose sizing experiments.
++Python handles validation, ngspice, reward and storage. It supports only the current
++TwoStage.yaml/testbench. No custom agent scheduler or circuit-plugin system is used.
+ 
+ ## Files
+ 
+-- `mcp_server.py`: physical-parameter tool, validation, budget check and audit log.
+-- `GEMINI.md`: persistent circuit knowledge and concise engineering-report rules.
+-- `experiment.md`: separate autonomous experiment template: start, budget and stopping rules.
+-- `run_experiment.py`: thin CLI launcher and deterministic result recorder, not an agent loop.
+-- `initial_design.json`: starting physical parameters, unchanged from TA Design 4.
+-- `agent_settings.json`: session-only simulator permission; denies shell, edits and web.
+-- `.agents/mcp_config.json`: inspectable launch config and SDK-test input.
+-- `.tools/agy.exe`: ignored local Antigravity CLI 1.5.1.
+-- `runs/`: ignored per-experiment prompts, final results, usage and simulator audits.
+-- `VALIDATION_REPORT.md`: current budget tests, token diagnostics and autonomous results.
+-
+-Tests and their scratch data remain in `../codex_tests/`. That folder is local
+-validation material and is intentionally excluded from this GitLab push.
+-
+-## Launch
+-
+-From the repository root:
++| File | Responsibility |
++|---|---|
++| mcp_server.py | Four MCP tools and one shared simulation budget |
++| circuit_adapter.py | TwoStage units, grids, finite checks and calls to CircuitEnv reward |
++| candidates.py | JSONL candidate records, ID lookup, changes and distinct ranking |
++| run_experiment.py | Launch Antigravity, collect evaluations and write one summary |
++| td3_candidates.py | Save/import completed TD3 evaluations without re-simulation |
++| replay_injection.py | Explicit insertion of measured LLM designs into an existing buffer |
++| train_td3.py | Optional warmup replacement and one later replay checkpoint |
++| experiment.md / GEMINI.md | Short experiment prompt and shared restrictions |
++| initial_design.json | Starting physical sizes |
++| .agents/ | Native roles, two skills, tool permissions and MCP launch settings |
++
++The Antigravity binary remains in the workspace `.tools/antigravity` directory,
++outside this repository. Existing sign-in and MCP registration are unchanged.
++Runtime data goes in ignored llm/runs/. Tests and historical evidence stay in
++codex_tests/, which must not be pushed.
++
++## Run from the repository root
+ 
+ ```powershell
+-.\.venv\Scripts\python.exe -B llm\run_experiment.py autonomous --budget 5
++.\.venv\Scripts\python.exe -B llm\run_experiment.py --budget 5
+ ```
+ 
+-This starts a fresh CLI conversation using the existing Flash Low model. It sends
+-only the experiment template with the starting parameters; GEMINI.md supplies the
+-reusable domain context. It does not prescribe a parameter change. The agent
+-characterizes the baseline, chooses subsequent candidates and supplies a short
+-hypothesis before each simulator call. It stops within five full simulations,
+-including baseline and failed attempts. The prototype launcher accepts budgets
+-from one to five; an autonomous demonstration needs at least two evaluations.
+-
+-For the small token diagnostics, run separately (each uses model credits):
++The default multi_agent mode measures initial_design.json once, then refines by ID.
++The coordinator selects experiments and owns the budget. It can consult the circuit
++diagnostician or experiment designer when useful. The strategist is optional and
++is not required every iteration. Specialists have no MCP inheritance, shell or
++write tools. Native messaging handles their replies; Python does not schedule agents.
+ 
+ ```powershell
+-.\.venv\Scripts\python.exe -B llm\run_experiment.py baseline
+-.\.venv\Scripts\python.exe -B llm\run_experiment.py tool
++.\.venv\Scripts\python.exe -B llm\td3_candidates.py PATH_TO_TD3_CANDIDATES.jsonl
++.\.venv\Scripts\python.exe -B llm\run_experiment.py td3_refine --budget 2
+ ```
+ 
+-The baseline mode requests READY with no tool call. Tool mode simulates one
+-predefined circuit without optimizing. Autonomous mode is diagnostic C as well
+-as the sizing experiment; no second optimization run is required.
++Import uses no simulator/model. Refinement starts from an already measured TD3 ID,
++not another baseline simulation. Pass --archive PATH to both commands for a chosen
++shared archive; the default shared file is llm/runs/candidates.jsonl. Fixture-only
++or missing TD3 data is rejected before a paid agent starts. The current TD3 learner
++is implemented. Its five `???` runner defaults still require explicit numeric flags.
++
++## Four tools
++
++| Tool | Use |
++|---|---|
++| get_problem() | Read current grids, units, targets, reward convention and remaining budget |
++| get_candidates(k=5) | Read compact, distinct designs ranked by actual reward |
++| get_candidates(design_id=id, include_parameters=True) | Retrieve one full stored record |
++| simulate_design(parameters, hypothesis='') | Measure a complete physical sizing vector |
++| evaluate_candidate(base_design_id, changes, hypothesis='') | Copy a base and test absolute changed values |
++
++Only the last two consume simulator attempts. They share the same lock and counter.
++Invalid grids/bounds/non-finite values are rejected before simulation. Failed
++simulator attempts count; restarting a server must not be used to renew the budget.
++Changes are physical absolute values, not percentages or normalized RL actions.
++Use one short engineering hypothesis; there are no decision/prediction arguments
++or required output schemas. Measured results, rather than agent claims, determine
++reward and feasibility. A positive reward alone does not establish feasibility.
++Zero UGBW/PHM remains a finite penalized fallback.
++
++## Records and results
++
++A candidate JSONL line contains a stable ID, setup ID, source, run ID, all physical
++parameters, measured specs/units, reward/feasibility/violations, parent ID, hypothesis
++and completion/simulation metadata. Only completed measured data enters this archive.
++Repeated physical vectors appear once in best-candidate lists; the full history
++remains available by ID. Imports retain their IDs and original checked reward.
++TD3 warmup/policy origin is kept as one phase field; it does not prove learning.
++
++Successful measurements are stored once in candidates.jsonl. Session calls.jsonl
++records actual attempt counts and failures, including failed parameters/hypotheses.
++The runner saves only summary.json: best measured record, evaluated IDs, archive
++path, actual observed attempts, wall-clock time, CLI status/error, final reply and
++reported tokens. A CLI error always returns failure even if good candidates exist.
++Timeouts or malformed CLI responses still preserve available measured results.
++There are no handoff traces, consultation files, memory snapshots or text-interval parsers.
++
++The setup ID is `TwoStage-rising-` plus a short hash of TwoStage.yaml. It detects
++YAML changes, not source/model/ngspice/PVT/library changes. It intentionally differs
++from the old broad fingerprints; historical records are not relabelled or migrated.
++Do not compare or import results from different targets, testbenches or slew-rate
++extraction without re-evaluation. In particular, old rise/fall averages are not
++current rising-only measurements. Keep the current setup fixed during an experiment.
++
++## Put measured LLM designs into TD3 memory
++
++The existing replay function is reused by the optional launcher below. It can also
++be called directly after a successful reset/step in an active episode:
++
++```python
++from llm.replay_injection import inject_llm_candidates
++
++seen = set()  # Create once; reuse for the entire training run.
++summary = inject_llm_candidates(archive_path, existing_buffer, env, seen, limit=3)
++```
+ 
+-To start the server without a model:
++It validates completed LLM records, converts physical parameters to float32 absolute
++actions and verifies them through action_refine. The transition is current measured
++state, action, existing reward, normalized candidate specs, and the current next-step
++time-limit flag. It calls the existing buffer.push, without re-simulation or changing
++obs/episode counters. Because this environment evaluates complete absolute sizes
++in a fresh simulation, the next specs/reward do not depend on previous sizes. All
++candidates branch from the current measured state; they are not chained into an
++invented episode. Feasibility does not terminate the episode; done matches the
++existing time-limit convention. Failed/finished episodes require a successful reset.
++
++The seen set prevents duplicate insertion; the returned IDs/rejections provide a
++small record of what was added. There is no second buffer, new actor loss or replay
++prioritization. Original LLM simulation costs still belong in any future TD3
++comparison; inserting an existing evaluation costs no additional simulation.
++Actor/critic/buffer code is unchanged. The runner has optional hooks at measured
++warmup states and between policy actions, retaining its existing TD3 export hooks.
++
++## Standard and hybrid TD3
++
++Run from the repository root. These are future experiment commands, not a claim
++that these settings are optimal. The numeric settings below come from the saved
++run `output_figs/2026-11-05--18-35-18/params.json`; choose and hold them fixed before
++comparing methods. No command starts an LLM or re-simulates an imported design.
+ 
+ ```powershell
+-$env:CAD_MAX_SIMULATIONS = '5'
+-.\.venv\Scripts\python.exe -B llm\mcp_server.py
+-```
+-
+-It waits for MCP input. Ctrl+C stops it. From `llm/`, `.\.tools\agy.exe` starts
+-interactive Antigravity with the persistent domain instructions; provide the
+-starting design, objective, budget and stopping conditions in the experiment prompt.
++$common = @('--seed', '123456', '--noise_sigma', '0.03', '--batch_size', '64',
++            '--w', '100', '--T', '2000', '--pi_lr', '0.0005', '--q_lr', '0.001')
+ 
+-## Antigravity registration and budget
++# A: unchanged standalone TD3 (random warmup).
++.\.venv\Scripts\python.exe -B llm\train_td3.py @common --run_id standard_A
+ 
+-Account sign-in is already configured. CLI 1.5.1 did not list the documented
+-workspace config, so the existing user MCP registry contains cad-simulator:
++# B: up to three already measured LLM designs replace random warmup slots.
++.\.venv\Scripts\python.exe -B llm\train_td3.py @common --run_id assisted_B --llm-archive llm\runs\candidates.jsonl --llm-warmup 3
+ 
+-```powershell
+-cd llm
+-.\.tools\agy.exe mcp add --env PYTHONDONTWRITEBYTECODE=1 cad-simulator C:\Users\inesb\Documents\CADproject\cad-git\.venv\Scripts\python.exe -B C:\Users\inesb\Documents\CADproject\cad-git\llm\mcp_server.py
+-.\.tools\agy.exe mcp list
++# C: same warmup, plus up to three distinct designs after 200 policy steps.
++.\.venv\Scripts\python.exe -B llm\train_td3.py @common --run_id hybrid_C --llm-archive llm\runs\candidates.jsonl --llm-warmup 3 --llm-after 200 --llm-count 3
+ ```
+ 
+-Update these paths if the checkout moves. Only this server's entry is changed;
+-no authentication or default-model settings are edited. The project JSON mirrors
+-the launch settings and is used by the protocol test.
+-
+-The old fixed two-call environment override has been removed from both configs.
+-The launcher passes CAD_MAX_SIMULATIONS and CAD_RUNS_DIR in its process environment,
+-which the MCP child inherits. This was verified with the one- and five-call audits.
+-With no override, the server defaults to five attempts. Its existing lock and
+-`env.counter` enforce the limit before starting another simulation. Invalid inputs
+-consume no budget; failed launch attempts count conservatively. The counter is
+-initialized only at server startup and is not reset by a tool call. Restarting the
+-server resets it; this is a per-process limit, not a persistent experiment database.
+-
+-## Tool and history
+-
+-`simulate_design(parameters, hypothesis='')` accepts all 20 physical SI parameters.
+-The original parameters-only call remains supported. Exact names, finite numeric
+-values, inclusive YAML bounds and discrete steps are checked without repairing inputs.
+-The optional hypothesis is at most 300 characters: a short prediction, not private
+-reasoning. It arrives in the request before simulation and is written with the result.
+-
+-The tool calls existing `env.simulate`, `normalize_specs` and `reward_computation`.
+-It returns seven specs with units, violations, reward, feasibility, count, remaining
+-budget, ID and runtime. Zero UGBW/PHM remains a valid penalized fallback. Unexpected
+-non-finite measurements or simulation failures produce explicit failure results
+-without synthetic specs/reward. Diagnostic prints go to stderr; stdout is MCP JSON-RPC.
+-No TD3 modules are imported. There are no new dependencies or specialized agents.
+-
+-Each `runs/<mode>_*/` folder contains:
+-
+-- `prompt.txt`: actual experiment request, with no coached sizing modification.
+-- `cli_result.json`: final response, structured assessments and actual CLI usage.
+-- `cli_stderr.txt`: process diagnostics; no streaming reasoning trace is requested.
+-- `simulations/session_*/calls.jsonl`: parameters, pre-call hypothesis and actual result.
+-- `history.json`: the same evaluations plus parameter/spec changes and model assessments.
+-- `best_design.json`: valid evaluation with the maximum logged course reward.
+-- `summary.json`: budgets, observed attempts, model, usage, runtimes and best-design IDs.
+-
+-No full source, netlist or waveform is repeatedly sent to the model. Detailed
+-simulator output remains local. Python computes changes and selects the best
+-actual reward; it also records whether the model's ranking agrees. Model hypothesis
+-assessments remain identifiable as model judgments and should be checked against
+-actual values. No private chain-of-thought is requested or stored in these records.
+-
+-## Tests, usage and limits
++Use a different run ID each time. The original `td3_runner.py` command also still
++works with the five numeric flags. All learning options are forwarded unchanged.
++With no injection enabled the launcher passes no hybrid object to the runner.
++
++Warmup starts with a measured reset, imports at most `--llm-warmup` candidates
++(never more than `--w`), then uses random actions for the remaining slots. Rejected
++or missing compatible candidates leave more random slots. Warmup performs no
++learning. Assisted warmup stops at exactly `w` combined slots; the unchanged
++standalone runner finishes its whole episode and may exceed `w`. Use a multiple
++of the ten-step episode horizon for planned A/B/C warmup counts.
++
++`--llm-after N` means one import before the next policy action after N actual
++policy steps, excluding warmup/imports/resets. The same archive is read afresh
++once, so appended candidates can be used. A terminal step is followed by reset
++before import; an unreached checkpoint is recorded as such. The same ID set is
++used throughout. No polling, agent launch, optimizer reset or extra buffer is used.
++`T` keeps the runner's existing meaning: combined warmup slots plus policy steps;
++policy episodes still finish and may exceed it. Imports at the later checkpoint
++do not advance that counter or the active episode.
++
++`llm/runs/td3_<run_id>/training_summary.json` records random warmup/policy counts,
++reset and step evaluations, imports/rejections/IDs, update count, elapsed time,
++rewards in TD3 step order and best/final exported policy samples. Candidate JSONL
++retains physical sizes/specs and simulation IDs. Reset evaluations are charged
++separately. Export errors remain visible; unavailable best/final exports are null.
++Policy samples include exploration noise; deterministic final actor quality needs
++a separately counted evaluation, not a claim based on those samples.
++
++For LLM optimization, use best feasible FoM versus elapsed time, feasibility and
++reported CLI tokens; evaluation count is descriptive. For TD3, use progress versus
++actual TD3 steps/evaluations and best/final actor quality. For hybrid, compare A/B/C
++under matched initialization, hyperparameters and repeated seeds, including the
++original LLM preparation cost. That cost is not a new ngspice call at insertion.
++The training summary leaves original LLM runtime/tokens null: consult the original
++LLM run summaries using each candidate's run ID; missing costs are unknown.
++
++Two existing runner limitations matter for future comparisons: it seeds NumPy and
++PyTorch but does not seed Gym's separate action-space RNG, and its `clean.sh` call
++at multiples of 100 is Unix-specific. The short validation seeds the action space
++explicitly in its test setup and never reaches that cleanup. These behaviors are
++preserved for the TD3 owner; matching `--seed` alone does not guarantee matching
++random warmup. Time-limit `done` masks also retain the existing learner convention.
++
++## Tests and report
+ 
+ ```powershell
+-.\.venv\Scripts\python.exe -B codex_tests\test_mcp_server.py
++.\.venv\Scripts\python.exe -B -m unittest codex_tests.test_hybrid_training codex_tests.test_replay_injection codex_tests.test_mcp_server codex_tests.test_multi_agent
++
++# Opt-in real simulator integration smoke, no model call:
++$env:CAD_HYBRID_REAL = '1'
++.\.venv\Scripts\python.exe -B -m unittest codex_tests.test_hybrid_training.TestRealHybrid -v
++Remove-Item Env:CAD_HYBRID_REAL
+ ```
+ 
+-Eight tests pass. The full suite uses four real simulations, with mocks for failure
+-and exact invocation-count checks. Invalid requests, failed-attempt consumption,
+-exhaustion, optional hypotheses and prompt separation are covered. Existing stdio
+-integration verifies the same counter across repeated calls and rejection after exhaustion.
+-
+-The launcher reads aggregate usage from the actual CLI JSON envelope. It records
+-input/output/total, reported thinking and cache-read tokens if provided. num_turns
+-is user turns, not the number of backend model calls. Exact model-call counts,
+-credits and monetary cost were not supplied; no estimates are invented. The three
+-same-model diagnostics establish a baseline, not a model-efficiency comparison.
+-
+-The autonomous run improved reward but found no fully feasible design in five calls.
+-See [VALIDATION_REPORT.md](VALIDATION_REPORT.md) for the exact results and cautious
+-interpretation of token overhead. Tool success, numerical validity, target
+-feasibility and agreement with TA measurements are separate claims. Earlier
+-comparisons found slew-rate extraction and TA slew/UGBW target discrepancies,
+-documented in the local [REFERENCES_REPORT.md](../codex_tests/REFERENCES_REPORT.md).
+-The harness did not alter targets, measurements or reward to improve its results.
+-
+-The recorded experiments predate upstream commit fd7d1ef, which changed slew-rate
+-extraction to rising edges only. Those archived results are historical; agreement
+-with the TA references needs fresh verification with the updated measurements.
++The default tests use mocked simulations, the actual TD3 networks/buffer and a
++zero-budget MCP protocol check. The opt-in smoke uses ngspice and small actual
++learning updates. Neither calls a model. See [HYBRID_REPORT.md](HYBRID_REPORT.md)
++for measured results, exact file changes and limitations. Older reports describe
++the implementation at their own dates, not the current learner or launch commands.
++
++## Oral-exam explanation
++
++MCP gives the LLM a small set of Python functions to call. The coordinator can ask
++specialists for physical advice, then sends a base ID and size changes to Python.
++Python validates the sizes, runs the existing ngspice interface and calls CircuitEnv
++to normalize specs and calculate reward/feasibility. JSONL records retain measured
++designs and hypotheses; the runner selects the highest actual reward. A separate
++small Python function can insert those measured designs into TD3's existing buffer.
++For another circuit, parameter definitions, measurements, targets, adapter and
++physics skill would change; the coordinator/MCP workflow could remain similar.
++TD3 is off-policy, so its critic can train on measured actions from another policy.
++The physical sizes are converted back to absolute actions and checked through the
++environment's own mapping. The critic learns their measured rewards and next
++states through ordinary uniform replay; the actor then learns through the critic's
++existing gradient update. Hybrid TD3 changes which experiences enter memory, not
++the TD3 equations. Insertion reuses a completed evaluation, so no new simulation
++is needed. This branch-from-current-state construction relies on the current
++static, absolute-sizing environment, not a general stateful circuit process.
+diff --git a/llm/VALIDATION_REPORT.md b/llm/VALIDATION_REPORT.md
+deleted file mode 100644
+index 3c5cc0f..0000000
+--- a/llm/VALIDATION_REPORT.md
++++ /dev/null
+@@ -1,174 +0,0 @@
+-# Milestone 4 validation and autonomous sizing — 5 November 2026
+-
+-These recorded experiments predate upstream fd7d1ef (rising-edge-only slew-rate
+-extraction). The newer measurement code was pulled before publishing the harness;
+-this report's numerical results were preserved rather than presented as a rerun.
+-
+-The existing per-process budget works correctly and was left unchanged. Eight
+-MCP tests pass. Three same-model diagnostics completed, with diagnostic C also
+-serving as the single autonomous sizing experiment. It used all five allowed
+-simulations and improved the best reward, but found **no fully feasible design**.
+-
+-## Exact changes
+-
+-| File | Change and reason |
+-| --- | --- |
+-| `mcp_server.py` | Added backward-compatible optional `hypothesis`, limited to 300 characters, and stored it in the existing call log. This records a brief prediction supplied before simulation. Counter, lock, simulator calls and reward handling were preserved. |
+-| `GEMINI.md` | Retained topology, transistor roles, physical bounds, targets, objectives, tool rules and measurement caveats. Removed the starting design, fixed two-call experiment and specific capacitor suggestion. |
+-| `experiment.md` | New short experiment template with starting parameters, budget, feasibility-first objective and stopping rules. It prescribes no sizing change. |
+-| `run_experiment.py` | New thin CLI launcher for baseline/tool/autonomous modes. Records actual usage and runtime, joins existing simulator logs with final assessments, computes spec/parameter changes, and selects maximum logged reward. No custom agent loop or reward equation. |
+-| `.agents/mcp_config.json` | Removed the old fixed two-call environment override. Budget and run directory are inherited from the launcher's environment. |
+-| `../codex_tests/test_mcp_server.py` | Retained existing tests and added exact budget/invocation counting, hypothesis logging/validation and context-separation checks. |
+-| `README.md` | Updated launch commands, budgets, log locations, usage measurement and limitations. |
+-| `VALIDATION_REPORT.md` | This implementation, diagnostic and decision-history report. |
+-
+-The existing Antigravity user registry's cad-simulator entry also had its fixed
+-CAD_MAX_SIMULATIONS=2 override removed using `agy mcp add`. It still points at
+-llm/mcp_server.py and preserves PYTHONDONTWRITEBYTECODE. Authentication and the
+-default model were not changed. The new per-run environment was verified from
+-the one-call and five-call audits, including remaining=0 at the correct count.
+-
+-No dependencies were added. TD3, CircuitEnv, ngspice wrapper, measurement code,
+-netlist, YAML targets and TA CSV were verified unchanged by hashes. Nothing was
+-committed or pushed. Earlier test/pilot records remain archived separately.
+-
+-## Budget verification
+-
+-CircuitEnv increments counter immediately before its one call to the existing
+-ngspice wrapper. The wrapper launches exactly one subprocess. Measurement and
+-normalization do not launch extra ngspice processes. The MCP tool checks the
+-counter while holding its existing lock, which serializes concurrent requests.
+-There is no counter reset in the tool. Initialization occurs once per process.
+-
+-The new focused test mocks the subprocess boundary and verifies a sequence in
+-one session: rejected input (0 calls), successful simulation (1), rejected input
+-(still 1), failed simulation (2), then three exhausted-budget requests (still 2).
+-Subprocess call count equals env.counter at every stage. Existing real-stdio
+-integration also verifies sequential counters 1 and 2 and rejects the third call.
+-The test fixture resets state between independent unit tests; production requests
+-do not execute that fixture. Failed launch attempts consume budget conservatively,
+-including an executable-start error. Failed netlist generation before launch
+-does not increment the simulator-attempt counter.
+-
+-All **eight tests passed**, using **four actual full simulations**. Other failure
+-and budget tests used mocks. Log:
+-`../codex_tests/artifacts/mcp/milestone4_tests.txt`.
+-The limit is per process: restarting the server resets it. No persistent global
+-counter, database, extra analysis tools or orchestration framework was added.
+-
+-## Token diagnostics
+-
+-All runs used **gemini-3.8-flash-low**, the same model as the earlier experiment.
+-Each CLI invocation created a fresh user turn; none continued an old conversation.
+-The same persistent circuit context and tool registration were in scope.
+-
+-| Diagnostic | Activity | Full ngspice calls | Input tokens | Output tokens | Total tokens | Wall seconds | CLI seconds |
+-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+-| A | Minimal READY request, no tools | 0 | 8,214 | 1 | 8,215 | 12.549 | 8.925 |
+-| B | One predefined design, no optimization | 1 | 17,929 | 412 | 18,341 | 17.245 | 13.780 |
+-| C | Autonomous baseline plus four modifications | 5 | 63,565 | 1,785 | 65,350 | 39.021 | 35.928 |
+-
+-Credit consumption and monetary cost were **not supplied**. Exact backend LLM
+-call counts were also unavailable in the captured final JSON. The CLI's
+-num_turns=1 in each run means one user turn, not one backend model invocation.
+-All three usage envelopes report thinking_tokens=0 and cache_read_tokens=0;
+-these are reported counters, not proof about hidden internal reasoning.
+-
+-Interpretation: A demonstrates a substantial input-context cost before simulation
+-or optimization. B adds 9,715 input tokens and C adds 45,636 more than B as tool
+-interactions and accumulated candidate history increase. This is consistent with
+-baseline CLI context plus repeated input context across tool round trips. The
+-diagnostics differ in prompt length and output schema too, so the differences
+-cannot be attributed solely to one tool call or to model reasoning. No per-call
+-token breakdown was supplied. The earlier 37,217-input-token two-call result is
+-therefore plausible, but its exact composition is not established. No model
+-comparison, monetary estimate or token-optimization system was implemented.
+-
+-Recorded runs:
+-- A: `runs/baseline_2bcxiijz/`
+-- B: `runs/tool_oyy26p24/`
+-- C: `runs/autonomous_i7ydy4qp/`
+-
+-Each has prompt.txt, cli_result.json and summary.json. Final user-facing responses
+-and concise engineering assessments are retained; streaming thought deltas and
+-private chain-of-thought are not requested or saved by this recorder.
+-
+-## Autonomous decision history
+-
+-The prompt supplied only the original physical parameters, budget, objectives
+-and stopping rules. It did not specify a parameter to change or a desired value.
+-Each following hypothesis is from the model's tool request, before execution.
+-Changes are relative to the immediately preceding design.
+-
+-| Design | Model-chosen change | Pre-call prediction | Observed assessment |
+-| --- | --- | --- | --- |
+-| 1 | Original TA Design 4 sizing | Characterize baseline constraints | Gain and slew rate fail. |
+-| 2 | cap: 3.5 -> 1.0 pF | Increase slew rate and UGBW, retain PHM >60 degrees | Main trends supported. PHM is 65.02 degrees, so headroom is modest. Gain and slew rate still fail. |
+-| 3 | wn4: 1.5 -> 2.25 um | Increase tail current, raise gain toward 200 and slew rate above 15 | **Partly supported:** current and gain increase, but slew rate is only 12.55. The model's raw final label says supported; its explicit >15 prediction was not met. |
+-| 4 | cap: 1.0 -> 0.7 pF | Raise slew rate above 15 while preserving PHM >60 | Unsupported: slew rate falls and PHM drops below 60. |
+-| 5 | cap: 0.7 -> 1.0 pF; wn4: 2.25 -> 2.5 um; wn5: 0.5 -> 1.0 um | Relieve output slewing while recovering phase margin | Slew goal unsupported; gain collapses while PHM recovers. Because three parameters changed together, their individual causal effects are not isolated. |
+-
+-| Design | Gain V/V | Slew V/us | PHM degrees | UGBW MHz | Actual reward | Violated hard constraints |
+-| --- | ---: | ---: | ---: | ---: | ---: | --- |
+-| 1 | 188.355 | 5.95866 | 103.458 | 14.7006 | -0.442445 | gain, slewRate |
+-| 2 | 188.355 | 12.3595 | 65.0153 | 24.6732 | -0.0915198 | gain, slewRate |
+-| 3 | 271.464 | 12.5500 | 68.7549 | 41.0516 | **-0.0610232** | slewRate |
+-| 4 | 271.464 | 12.1351 | 58.1879 | 44.8644 | -0.0904293 | phm, slewRate |
+-| 5 | 86.4435 | 11.9088 | 80.8104 | 43.6185 | -0.485806 | gain, slewRate |
+-
+-All five simulations succeeded numerically and returned seven finite metrics;
+-none met all five hard constraints. The counter progressed exactly 1,2,3,4,5 in
+-one evaluated MCP session, ending with remaining=0. Each design produced four
+-nonempty simulator output files. Tool runtime totaled 0.7051 seconds for C,
+-including netlist generation and measurement processing.
+-
+-The model and Python agree that design 3 has the greatest actual course FoM.
+-Python selects max(reward) from valid logged evaluations, independently of the
+-model's prose. Its ID is **TwoStage_1793887100_kfdqhxzicg**. Relative to the initial
+-design, its only changes are cap=1.0e-12 F and wn4=2.25e-6 m. All 20 parameters,
+-seven specs, original hypothesis and assessment are saved in
+-`runs/autonomous_i7ydy4qp/best_design.json`.
+-
+-| Best-design spec | Measured value |
+-| --- | ---: |
+-| area | 8.370672619e-10 m^2 |
+-| current | 1.483731e-4 A |
+-| gain | 271.46386 V/V |
+-| noise | 0.0048699687 V RMS |
+-| phm | 68.7548533 degrees |
+-| slewRate | 12.5500237 V/us |
+-| ugbw | 41051573.6 Hz |
+-
+-The full chronological record is `runs/autonomous_i7ydy4qp/history.json`. It keeps
+-each ID, complete physical parameters, pre-call hypothesis, actual specs/reward,
+-feasibility, runtime, parameter/spec changes and the model's final assessment.
+-The original call journal remains in its simulations/session_* folder. The table
+-above flags the partial-hypothesis issue without overwriting the model's raw record.
+-
+-## Execution flow and remaining limits
+-
+-The launcher loads the initial design and experiment instructions, starts one
+-Antigravity process with its budget/output-directory environment, and supplies
+-the unchanged model choice. Antigravity calls the one MCP tool. The tool validates
+-inputs, checks the existing counter, launches the existing full ngspice evaluation,
+-rejects invalid numbers and returns compact measured results. The agent assesses
+-the result and chooses another design within budget. After exit, Python joins the
+-audit records with final assessments and selects the highest actual reward.
+-
+-This task used **10 real full simulations total**: four regression-test calls,
+-one diagnostic-B call and five autonomous calls. Diagnostic A used zero. No
+-additional optimization attempt was made after the fifth design failed.
+-
+-Tool execution, finite numerical measurements, hard-constraint feasibility and
+-TA-reference agreement remain distinct. The zero-UGBW/PHM convention and NaN/inf
+-failure behavior are preserved. The known slew-rate extraction discrepancy and
+-the YAML/TA slew-rate and UGBW target differences are not resolved by this work;
+-see `../codex_tests/REFERENCES_REPORT.md`. These runs use the existing YAML's
+-15 V/us and 1 MHz targets, not the TA CSV's implied 30 V/us and 100 MHz values.
+-The earlier action-grid reference mismatch also remains; the physical-parameter
+-MCP interface bypasses action_refine and does not repair that separate RL issue.
+-
+-Before relying on an optimization claim, resolve those reference differences and
+-review engineering predictions rather than trusting the model's support labels.
+-The five-call experiment demonstrates autonomous proposal, evaluation and honest
+-failure retention; it does not demonstrate finding a feasible or TA-certified opamp.
+diff --git a/llm/agent_settings.json b/llm/agent_settings.json
+deleted file mode 100644
+index 23eaafe..0000000
+--- a/llm/agent_settings.json
++++ /dev/null
+@@ -1,6 +0,0 @@
+-{
+-  "permissions": {
+-    "allow": ["mcp(cad-simulator/simulate_design)"],
+-    "deny": ["command(*)", "write_file(*)", "read_url(*)", "execute_url(*)"]
+-  }
+-}
+diff --git a/llm/experiment.md b/llm/experiment.md
+index b87a586..a42be95 100644
+--- a/llm/experiment.md
++++ b/llm/experiment.md
+@@ -1,23 +1,18 @@
+-# Autonomous sizing experiment
++Run a native multi-agent sizing experiment with at most {{budget}} NEW full
++ngspice attempts, including failed simulator attempts. {{start}}
+ 
+-Starting physical SI parameters: {{parameters}}
++Call get_problem once. Retrieve candidate specs by ID, requesting full parameters
++only when needed. Ask the diagnostician for physical interpretation when useful;
++ask the designer for one targeted change. Consult the strategist only for
++stagnation or a material allocation question. Reuse specialists with small packets.
+ 
+-Maximum full simulations: {{budget}}, including the baseline and failed attempts.
+-Use only simulate_design; never restart the MCP server to renew the budget.
+-Do not read other files or use shell, web, file edits, or other agents.
++For each refinement call evaluate_candidate(base_design_id, changes, hypothesis)
++with absolute physical values. A short hypothesis is the normal explanation.
++Python reconstructs the complete design. Use one short physical hypothesis;
++do not invent numerical predictions or unmeasured feasibility.
+ 
+-First characterize the baseline. Then independently choose modifications based
+-on measured violations: no particular parameter change is prescribed. Prioritize
+-all hard-constraint feasibility before reducing area/current. Before each call,
+-supply a brief engineering prediction through the tool's hypothesis argument.
+-Predict relevant benefits and tradeoffs. After each result, compare with the
+-previous result, acknowledge unsuccessful changes, and decide the next candidate.
+-Continue within budget. Stop when the budget is exhausted, simulations repeatedly
+-fail, or a feasible design leaves no justified further change.
+-
+-Return a concise assessment for every simulation ID: was its prediction supported,
+-unsupported, or not applicable to the baseline? Give one short evidence sentence.
+-Select the best valid design by the actual course reward and state its ID. Do not
+-call an infeasible design feasible. The Python launcher independently selects the
+-maximum logged reward; it does not rely on your subjective ranking. Return only
+-the requested structured record, without private reasoning traces.
++Preserve failed hypotheses and inspect actual measurements. Track current
++and best verified IDs, observed trade-offs and remaining budget. get_candidates
++provides distinct reward-ranked results. Stop within the budget and retain a better
++earlier design when refinement fails. Finish with the best ID, measured reward,
++feasibility and a brief engineering explanation. Fixture records are tests.
+diff --git a/llm/mcp_server.py b/llm/mcp_server.py
+index 84e60aa..653a4a5 100644
+--- a/llm/mcp_server.py
++++ b/llm/mcp_server.py
+@@ -1,14 +1,15 @@
+-"""One local stdio tool around the existing CAD simulator (MCP SDK 2.x)."""
++"""Four MCP tools for the current TwoStage opamp."""
+ from contextlib import redirect_stdout
+ import json
+-import math
+ import os
+ from pathlib import Path
+ import sys
+ import tempfile
+-from threading import Lock
++from threading import RLock
+ from time import perf_counter
+ from typing import Annotated, Any
++from pydantic import Field
++from mcp.server.mcpserver import MCPServer
+ 
+ sys.dont_write_bytecode = True
+ HERE = Path(__file__).resolve().parent
+@@ -19,109 +20,100 @@ RUN = Path(tempfile.mkdtemp(prefix='session_', dir=RUNS))
+ os.environ.setdefault('MPLCONFIGDIR', str(RUN / 'matplotlib'))
+ os.environ.setdefault('MPLBACKEND', 'Agg')
+ sys.path.insert(0, str(REPO))
+-
+-from mcp.server.mcpserver import MCPServer
+-from pydantic import Field
+ from circuit_env import CircuitEnv
++from circuit_adapter import CircuitAdapter
++from candidates import CandidateArchive, apply_changes, compact
+ 
+-# CircuitEnv and the .include paths use cwd. This changes only this server process.
+-os.chdir(REPO)
+-with redirect_stdout(sys.stderr):
++os.chdir(REPO)  # CircuitEnv/netlist include paths use the repository directory.
++with redirect_stdout(sys.stderr):  # stdout is reserved for MCP messages.
+     env = CircuitEnv()
+ env.simulation_engine.output_netlists_folder = str(RUN / 'netlists')
+ env.simulation_engine.output_files_folder = str(RUN / 'outputs')
++adapter = CircuitAdapter(env, REPO)
++context = adapter.context()
++archive = CandidateArchive(os.environ.get('CAD_ARCHIVE_PATH', str(RUNS / 'candidates.jsonl')), context['problem_id'])
++initial_reference = json.loads((HERE / 'initial_design.json').read_text())
+ MAX_SIMULATIONS = int(os.environ.get('CAD_MAX_SIMULATIONS', '5'))
+-if MAX_SIMULATIONS < 1:
+-    raise ValueError('CAD_MAX_SIMULATIONS must be at least 1')
+-
+-UNITS = {'area': 'm^2', 'current': 'A', 'gain': 'V/V', 'noise': 'V RMS',
+-         'phm': 'deg', 'slewRate': 'V/us', 'ugbw': 'Hz'}
+-Number = Annotated[float, Field(strict=True, allow_inf_nan=False)] #force certain types to be float, not int or bool, and finite (no NaN/inf)
+-lock = Lock()  # The existing DUT stores filenames on itself; serialize tool calls.
+-mcp = MCPServer('cad-simulator', instructions=(
+-    'Size a two-stage Miller opamp using physical SI parameters. '
+-    'Use simulate_design only; zero UGBW/PHM is a penalized measured fallback. '
+-    f'At most {MAX_SIMULATIONS} simulator attempts per server session.'
+-))
++if MAX_SIMULATIONS < 0:
++    raise ValueError('CAD_MAX_SIMULATIONS must be nonnegative')
++Number = Annotated[float, Field(strict=True, allow_inf_nan=False)]
++lock = RLock()  # ID lookup and simulation share the same lock and counter.
++mcp = MCPServer('cad-simulator', instructions='Use get_problem/get_candidates; test absolute changes with evaluate_candidate. Only the coordinator may simulate.')
+ 
+ 
+-@mcp.tool(structured_output=True)
+-def simulate_design(parameters: dict[str, Number],
+-                    hypothesis: Annotated[str, Field(max_length=300)] = '') -> dict[str, Any]:
+-    """Simulate all 20 physical sizing parameters from TwoStage.yaml.
+-
+-    Supply exactly mp1/wp1/lp1, mn1/wn1/ln1, mp3/wp3/lp3, mn3/wn3/ln3,
+-    mn4/wn4/ln4, mn5/wn5/ln5, cap and res. Lengths are m, cap F, res ohm.
+-    Bounds and steps are defined in the workspace sizing instructions/YAML.
+-    success means a valid evaluation; hard_satisfied means a feasible design.
+-    Optional hypothesis: one brief engineering prediction made before simulation.
+-    """
++def _evaluate(parameters, hypothesis, parent_id=None):
+     with lock:
+-        if not isinstance(hypothesis, str) or len(hypothesis) > 300:
+-            return {'success': False, 'hard_satisfied': False,
+-                    'error': 'hypothesis must be a string of at most 300 characters',
+-                    'simulation_count': env.counter}
+-        # The SDK rejects nonnumeric/NaN inputs too; keep validation usable in Python.
+-        expected = set(env.dict_params)
+-        if set(parameters) != expected:
+-            missing = sorted(expected - set(parameters))
+-            extra = sorted(set(parameters) - expected)
+-            return {'success': False, 'hard_satisfied': False,
+-                    'error': f'Parameter names: missing={missing}, extra={extra}',
+-                    'simulation_count': env.counter}
+-        for name, (minimum, maximum, step) in env.dict_params.items():
+-            value = parameters[name]
+-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+-                return {'success': False, 'hard_satisfied': False,
+-                        'error': f'{name} must be a finite number', 'simulation_count': env.counter}
+-            if not minimum <= value <= maximum:
+-                return {'success': False, 'hard_satisfied': False,
+-                        'error': f'{name} must be within [{minimum:g}, {maximum:g}]',
+-                        'simulation_count': env.counter}
+-            position = (value - minimum) / step
+-            # Allow binary floating-point noise, not an actual off-grid sizing change.
+-            if not math.isclose(position, round(position), rel_tol=0, abs_tol=1e-7):
+-                return {'success': False, 'hard_satisfied': False,
+-                        'error': f'{name} must equal {minimum:g} + k*{step:g} for integer k',
+-                        'simulation_count': env.counter}
++        try:
++            if not isinstance(hypothesis, str) or len(hypothesis) > 300:
++                raise ValueError('hypothesis must be a string of at most 300 characters')
++            adapter.validate_parameters(parameters)
++        except (ValueError, TypeError) as error:
++            return {'success': False, 'error': str(error), 'simulation_count': env.counter}
+         if env.counter >= MAX_SIMULATIONS:
+-            return {'success': False, 'hard_satisfied': False, 'error': 'Simulation budget exhausted',
+-                    'simulation_count': env.counter, 'remaining': 0}
+-
++            return {'success': False, 'error': 'Simulation budget exhausted', 'simulation_count': env.counter, 'remaining': 0}
+         started = perf_counter()
+         try:
+-            # Existing code sometimes prints diagnostic text: stdout is reserved for MCP.
+             with redirect_stdout(sys.stderr):
+-                specs = env.simulate(parameters)
+-                if set(specs) != set(env.dict_targets):
+-                    raise ValueError('Expected exactly seven measured specifications')
+-                for name, value in specs.items():
+-                    if value is None or not math.isfinite(value):
+-                        raise ValueError(f'Invalid measurement: {name}')
+-                normalized = env.normalize_specs(specs)
+-                if not all(math.isfinite(value) for value in normalized.values()):
+-                    raise ValueError('Non-finite normalized specification')
+-                reward, feasible = env.reward_computation(normalized)
+-                if not math.isfinite(reward):
+-                    raise ValueError('Non-finite reward')
+-            violated = [name for name in env.hard_constraints
+-                        if (specs[name] > env.dict_targets[name] if name == 'noise'
+-                            else specs[name] < env.dict_targets[name])]
+-            if bool(feasible) != (not violated):
+-                raise ValueError('Reward feasibility disagrees with physical hard constraints')
+-            result = {'success': True, 'specs': {name: float(value) for name, value in specs.items()},
+-                      'units': UNITS, 'violated_constraints': violated, 'reward': float(reward),
+-                      'hard_satisfied': bool(feasible)}
++                assessment = adapter.assess(env.simulate(parameters))
++            source = 'initial reference' if parent_id is None and parameters == initial_reference else 'LLM'
++            candidate = archive.add(parameters, assessment, source, os.environ.get('CAD_RUN_ID', RUN.name),
++                {'completed': True, 'simulator': 'ngspice', 'simulation_id': env.simulation_engine.random_name,
++                 'simulation_count': env.counter}, parent_id, hypothesis)
++            result = {'success': True, 'design_id': candidate['design_id'],
++                      **{key: assessment[key] for key in ('specs', 'reward', 'hard_satisfied', 'violated_constraints')}}
+         except (OSError, RuntimeError, ValueError, TypeError, KeyError, IndexError) as error:
+-            # No synthetic specs/reward: an unsuccessful evaluation is explicit.
+-            result = {'success': False, 'hard_satisfied': False, 'error': str(error)[:240]}
+-        result.update(simulation_count=env.counter, remaining=MAX_SIMULATIONS - env.counter,
++            result = {'success': False, 'hard_satisfied': False, 'error': str(error)}
++        result.update(simulation_count=env.counter, remaining=MAX_SIMULATIONS-env.counter,
+                       simulation_id=getattr(env.simulation_engine, 'random_name', None),
+-                      runtime_s=round(perf_counter() - started, 4))
+-        # Full candidate parameters stay local; responses omit netlists/waveforms/logs.
++                      runtime_s=round(perf_counter()-started, 4))
++        # Successful data lives once in candidates.jsonl; this small log also records failed attempts.
++        audit = {'result': {key: result[key] for key in
++                 ('success', 'design_id', 'simulation_count', 'simulation_id', 'runtime_s', 'error') if key in result}}
++        if not result['success']:
++            audit.update(parameters=parameters, hypothesis=hypothesis)
+         with (RUN / 'calls.jsonl').open('a', encoding='utf-8') as output:
+-            output.write(json.dumps({'parameters': parameters, 'hypothesis': hypothesis,
+-                                     'result': result}, allow_nan=False) + '\n')
++            output.write(json.dumps(audit, allow_nan=False) + '\n')
++        return result
++
++
++@mcp.tool(structured_output=True)
++def get_problem() -> dict[str, Any]:
++    """Read physical grids/units, targets, reward convention and remaining budget. No simulation."""
++    return {**adapter.problem(context), 'simulation_count': env.counter, 'remaining': MAX_SIMULATIONS-env.counter}
++
++
++@mcp.tool(structured_output=True)
++def get_candidates(k: Annotated[int, Field(strict=True, ge=1, le=20)] = 5,
++                   design_id: str | None = None, include_parameters: bool = False) -> dict[str, Any]:
++    """Read best distinct measured designs, or one ID. Full record only on request."""
++    with lock:
++        try:
++            if type(k) is not int or not 1 <= k <= 20:
++                raise ValueError('k must be an integer from 1 to 20')
++            records = [archive.get(design_id)] if design_id else archive.best(k)
++            return {'success': True, 'candidates': [compact(r, include_parameters) for r in records]}
++        except ValueError as error:
++            return {'success': False, 'error': str(error)}
++
++
++@mcp.tool(structured_output=True)
++def simulate_design(parameters: dict[str, Number],
++                    hypothesis: Annotated[str, Field(max_length=300)] = '') -> dict[str, Any]:
++    """Evaluate all physical parameters once. Use get_problem for names, units and grids."""
++    return _evaluate(parameters, hypothesis)
++
++
++@mcp.tool(structured_output=True)
++def evaluate_candidate(base_design_id: str, changes: dict[str, Number],
++                       hypothesis: Annotated[str, Field(max_length=300)] = '') -> dict[str, Any]:
++    """Copy a measured base and evaluate absolute changed values using the same budget."""
++    with lock:
++        try:
++            parameters, actual = apply_changes(archive.get(base_design_id)['parameters'], changes)
++        except ValueError as error:
++            return {'success': False, 'error': str(error), 'simulation_count': env.counter}
++        result = _evaluate(parameters, hypothesis, base_design_id)
++        result.update(parent_id=base_design_id, changes=actual)
+         return result
+ 
+ 
+diff --git a/llm/run_experiment.py b/llm/run_experiment.py
+index 2f8b8ab..78e28f9 100644
+--- a/llm/run_experiment.py
++++ b/llm/run_experiment.py
+@@ -1,117 +1,80 @@
+-"""Thin Antigravity launcher and result recorder; no agent loop or reward formula."""
++"""Launch one native Antigravity experiment; save its measured best design and status."""
+ import argparse
+ import json
+-import math
+ import os
+ from pathlib import Path
+ import subprocess
+ import tempfile
+ from time import perf_counter
++from candidates import CandidateArchive
++from circuit_adapter import setup_id
+ 
+ HERE = Path(__file__).resolve().parent
+-MODEL = 'gemini-3.8-flash-low'  # Same model for diagnostics A, B and C.
++MODEL = 'gemini-3.8-flash-low'
++AGY = HERE.parent.parent / '.tools/antigravity/agy.exe'
+ 
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+-    parser.add_argument('mode', choices=['baseline', 'tool', 'autonomous'])
++    parser.add_argument('mode', nargs='?', default='multi_agent', choices=['multi_agent', 'td3_refine'])
+     parser.add_argument('--budget', type=int, default=5, choices=range(1, 6))
++    parser.add_argument('--archive', type=Path, help='optional shared candidate JSONL')
+     args = parser.parse_args()
+-    budget = {'baseline': 0, 'tool': 1, 'autonomous': args.budget}[args.mode]
++    problem_id = setup_id(HERE.parent)
++    base = None
++    if args.mode == 'td3_refine':
++        args.archive = args.archive or HERE / 'runs/candidates.jsonl'
++        candidates = CandidateArchive(args.archive, problem_id).records()
++        base = max((r for r in candidates if r['source'] == 'TD3' and not r['metadata'].get('fixture', False)),
++                   key=lambda r: r['reward'], default=None)
++        if base is None:
++            parser.error('No current, non-fixture TD3 evaluation. Import measured TD3 candidates first.')
+     (HERE / 'runs').mkdir(exist_ok=True)
+     run = Path(tempfile.mkdtemp(prefix=args.mode + '_', dir=HERE / 'runs'))
+-    parameters = json.loads((HERE / 'initial_design.json').read_text())
+-    if args.mode == 'baseline':
+-        prompt = 'Context-overhead diagnostic. Do not use any tools. Reply exactly READY.'
+-    elif args.mode == 'tool':
+-        prompt = ('Call simulate_design exactly once for the predefined physical parameters below, '
+-                  'using hypothesis="Baseline characterization; no sizing change." '
+-                  'Do not optimize or change parameters. Then stop and return the requested record. '
+-                  'Do not read files, use other tools, or delegate. Parameters: '
+-                  + json.dumps(parameters, separators=(',', ':')))
++    archive = CandidateArchive((args.archive or run / 'candidates.jsonl').resolve(), problem_id)
++    if base:
++        start = f'Start from evaluated TD3 ID {base["design_id"]}; retrieve it without re-simulating.'
+     else:
+-        prompt = (HERE / 'experiment.md').read_text().replace('{{budget}}', str(budget)).replace(
+-            '{{parameters}}', json.dumps(parameters, separators=(',', ':')))
+-    (run / 'prompt.txt').write_text(prompt, encoding='utf-8')
+-    # A short final assessment is user-facing engineering evidence, not private reasoning.
+-    schema = {'type': 'object', 'properties': {
+-        'evaluations': {'type': 'array', 'items': {'type': 'object', 'properties': {
+-            'simulation_id': {'type': 'string'},
+-            'assessment': {'type': 'string', 'enum': ['baseline', 'supported', 'unsupported', 'unclear']},
+-            'evidence': {'type': 'string', 'maxLength': 240}},
+-            'required': ['simulation_id', 'assessment', 'evidence'], 'additionalProperties': False}},
+-        'best_simulation_id': {'type': 'string'}, 'selection_reason': {'type': 'string', 'maxLength': 300}},
+-        'required': ['evaluations', 'best_simulation_id', 'selection_reason'], 'additionalProperties': False}
+-    command = [str(HERE / '.tools/agy.exe'), '--settings', str(HERE / 'agent_settings.json'),
++        parameters = json.loads((HERE / 'initial_design.json').read_text())
++        start = 'First simulate these unchanged physical parameters once: ' + json.dumps(parameters, separators=(',', ':'))
++    prompt = (HERE / 'experiment.md').read_text().replace('{{budget}}', str(args.budget)).replace('{{start}}', start)
++    command = [str(AGY), '--settings', str(HERE / '.agents/settings.json'), '--agent', 'coordinator',
+                '--model', MODEL, '--output-format', 'json', '--print-timeout', '5m', '-p', prompt]
+-    if args.mode != 'baseline':
+-        command.extend(['--json-schema', json.dumps(schema)])
+-    environment = {**os.environ, 'CAD_MAX_SIMULATIONS': str(max(1, budget)),
+-                   'CAD_RUNS_DIR': str(run / 'simulations'), 'PYTHONDONTWRITEBYTECODE': '1'}
+-    print(f'Running {args.mode}: model={MODEL}, simulator budget={budget}, logs={run}', flush=True)
++    environment = {**os.environ, 'CAD_MAX_SIMULATIONS': str(args.budget), 'CAD_RUN_ID': run.name,
++                   'CAD_RUNS_DIR': str(run), 'CAD_ARCHIVE_PATH': str(archive.path), 'PYTHONDONTWRITEBYTECODE': '1'}
++    print(f'Running {args.mode}, budget={args.budget}, results={run}', flush=True)
+     started = perf_counter()
++    exit_code = None
+     try:
+         completed = subprocess.run(command, cwd=HERE, env=environment, capture_output=True,
+                                    encoding='utf-8', errors='replace', timeout=330)
+-        wall_time = perf_counter() - started
+-        (run / 'cli_stderr.txt').write_text(completed.stderr, encoding='utf-8')
+-        data = json.loads(completed.stdout)
+-    except (subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+-        (run / 'run_error.txt').write_text(str(error), encoding='utf-8')
+-        print(f'CLI did not produce a completed JSON result; see {run}', flush=True)
+-        return 1
+-    # Retain final response/usage only, not streaming thought deltas or debug traces.
+-    envelope = {key: data[key] for key in ['status', 'response', 'error', 'usage', 'duration_seconds',
+-                                         'num_turns', 'structured_output'] if key in data}
+-    (run / 'cli_result.json').write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding='utf-8')
+-    structured = data.get('structured_output') or {}
+-    assessments = {item['simulation_id']: item for item in structured.get('evaluations', [])}
+-    history = []
++        exit_code = completed.returncode
++        response = json.loads(completed.stdout)
++    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as error:
++        response = {'status': 'ERROR', 'error': str(error)}
+     attempts = 0
+-    audit_files = sorted((run / 'simulations').glob('session_*/calls.jsonl'))
+-    previous = None
+-    for audit in audit_files:
+-        records = [json.loads(line) for line in audit.read_text().splitlines() if line.strip()]
+-        attempts += max((record['result']['simulation_count'] for record in records), default=0)
+-        for record in records:
+-            result = record['result']
+-            entry = {**record, 'changes': {}, 'observed_spec_changes': {},
+-                     'assessment': assessments.get(result.get('simulation_id'))}
+-            if previous is not None:
+-                entry['changes'] = {name: {'from': previous['parameters'][name], 'to': value}
+-                                    for name, value in record['parameters'].items()
+-                                    if value != previous['parameters'][name]}
+-                if result.get('success') and previous['result'].get('success'):
+-                    entry['observed_spec_changes'] = {name: value - previous['result']['specs'][name]
+-                                                      for name, value in result['specs'].items()}
+-            history.append(entry)
+-            previous = record
+-    valid = [entry for entry in history if entry['result'].get('success')
+-             and math.isfinite(entry['result']['reward'])]
+-    best = max(valid, key=lambda entry: entry['result']['reward']) if valid else None
+-    best_feasible = max((entry for entry in valid if entry['result']['hard_satisfied']),
+-                        key=lambda entry: entry['result']['reward'], default=None)
+-    (run / 'history.json').write_text(json.dumps(history, indent=2, allow_nan=False), encoding='utf-8')
+-    (run / 'best_design.json').write_text(json.dumps(best, indent=2, allow_nan=False), encoding='utf-8')
+-    model_best = structured.get('best_simulation_id')
+-    summary = {'mode': args.mode, 'model': MODEL, 'cli_status': data.get('status'),
+-               'cli_exit_code': completed.returncode, 'simulation_budget': budget,
+-               'ngspice_attempts': attempts, 'budget_respected': attempts <= budget,
+-               'server_sessions_with_evaluations': len(audit_files),
+-               'wall_clock_s': round(wall_time, 3), 'cli_duration_s': data.get('duration_seconds'),
+-               'summed_tool_runtime_s': round(sum(e['result']['runtime_s'] for e in history), 4),
+-               'usage': data.get('usage'), 'llm_calls': None, 'user_turns': data.get('num_turns'),
+-               'credit_usage': (data.get('usage') or {}).get('credits'),
+-               'usage_note': 'num_turns is user turns, not backend LLM calls. Missing credits/call counts are unavailable.',
+-               'best_simulation_id': best['result']['simulation_id'] if best else None,
+-               'best_reward': best['result']['reward'] if best else None,
+-               'best_is_feasible': best['result']['hard_satisfied'] if best else None,
+-               'best_feasible_simulation_id': best_feasible['result']['simulation_id'] if best_feasible else None,
+-               'model_best_matches_logged_reward': model_best == best['result']['simulation_id'] if best else None}
++    for audit in run.glob('session_*/calls.jsonl'):
++        records = [json.loads(line) for line in audit.read_text(encoding='utf-8').splitlines() if line.strip()]
++        attempts += max((r['result']['simulation_count'] for r in records), default=0)
++    candidates = archive.records()
++    best = max(candidates, key=lambda r: r['reward'], default=None)
++    success = exit_code == 0 and response.get('status') == 'SUCCESS' and attempts <= args.budget and best is not None
++    summary = {'success': success, 'mode': args.mode, 'model': MODEL, 'archive': str(archive.path),
++               'simulation_budget': args.budget, 'ngspice_attempts': attempts,
++               'wall_clock_s': round(perf_counter()-started, 3), 'usage': response.get('usage'),
++               'cli_status': response.get('status'), 'cli_exit_code': exit_code,
++               'error': response.get('error'), 'response': response.get('response'),
++               'best': best, 'evaluated_design_ids': [r['design_id'] for r in candidates if r['run_id'] == run.name]}
++    if not summary['error']:
++        if exit_code:
++            summary['error'] = completed.stderr.strip() or f'CLI exited with code {exit_code}'
++        elif attempts > args.budget:
++            summary['error'] = 'Recorded simulator attempts exceed the budget'
++        elif best is None:
++            summary['error'] = 'No measured design is available'
+     (run / 'summary.json').write_text(json.dumps(summary, indent=2, allow_nan=False), encoding='utf-8')
+     print(json.dumps(summary, indent=2), flush=True)
+-    expected_count = attempts == budget if args.mode != 'autonomous' else 2 <= attempts <= budget
+-    return 0 if completed.returncode == 0 and data.get('status') == 'SUCCESS' and attempts <= budget and expected_count else 1
++    return 0 if success else 1
+ 
+ 
+ if __name__ == '__main__':
+diff --git a/td3_runner.py b/td3_runner.py
+index a0b26e8..af48579 100755
+--- a/td3_runner.py
++++ b/td3_runner.py
+@@ -6,8 +6,17 @@ import numpy as np
+ from td3 import TD3, ReplayBuffer
+ from circuit_env import CircuitEnv
+ from datetime import datetime
++from llm.td3_candidates import export_td3_candidate
+ 
+-def readParser():
++
++def export_evaluation(env, reward, info, phase='policy'):
++    # Logging only: never change actions, learning updates or simulator calls.
++    try:
++        export_td3_candidate(env, reward, info, phase=phase)
++    except (OSError, ValueError, TypeError, KeyError) as error:
++        print(f'TD3 candidate export failed: {error}')
++
++def readParser(argv=None):
+     parser = argparse.ArgumentParser(description='TD3-based RL for Circuit Sizing')
+ 
+     parser.add_argument('--seed', type=int, default=123456, metavar='N',
+@@ -55,17 +64,21 @@ def readParser():
+     parser.add_argument('--run_id', type=str, default=datetime.now().strftime('%Y-%m-%d--%H-%M-%S'), metavar='N',
+                         help='run identifier (default: current time)')
+     
+-    return parser.parse_args()
++    return parser.parse_args(argv)
+ 
+ 
+-def train(args, env, agent, env_pool):
+-    total_steps = warmup_exploration(args, env, env_pool, agent)
++def train(args, env, agent, env_pool, hybrid=None):
++    total_steps = warmup_exploration(args, env, env_pool, agent, hybrid)
++    warmup_steps = total_steps
+     while total_steps < args.T:
+         obs = env.reset()
+         done = False
+         while not done:
++            if hybrid is not None:
++                hybrid.checkpoint(total_steps - warmup_steps, env, env_pool)
+             action = agent.select_action(obs)
+             next_state, reward, done, info = env.step(action)
++            export_evaluation(env, reward, info)
+             env_pool.push(obs, action, reward, next_state, done)
+             obs = next_state
+             train_policy(args, env_pool, agent, total_steps)
+@@ -73,17 +86,21 @@ def train(args, env, agent, env_pool):
+             # clean up the no_backup folder every 100 steps
+             if total_steps % 100 == 0:
+                 os.system('./clean.sh')
++    return {'warmup_steps': warmup_steps, 'training_steps': total_steps - warmup_steps}
+ 
+ 
+ 
+-def warmup_exploration(args, env, env_pool, agent):
++def warmup_exploration(args, env, env_pool, agent, hybrid=None):
+     step_counter = 0
+     while step_counter < args.w:
+         obs = env.reset()
+         done = False
+-        while not done:
++        if hybrid is not None:
++            step_counter += hybrid.warmup(env, env_pool)
++        while not done and (hybrid is None or step_counter < args.w):
+             action = env.action_space.sample()
+             next_state, reward, done, info = env.step(action)
++            export_evaluation(env, reward, info, phase='warmup')
+             env_pool.push(obs, action, reward, next_state, done)
+             obs = next_state
+             step_counter += 1
+@@ -96,7 +113,7 @@ def train_policy(args, env_pool, agent, total_steps):
+     agent.update_parameters(memory_batch=batch, update=total_steps)
+ 
+ 
+-def main(args=None):
++def main(args=None, hybrid=None):
+     if args is None:
+         args = readParser()
+     # Save the parameters of this run next to its figures
+@@ -116,7 +133,8 @@ def main(args=None):
+     # Initial pool for env
+     env_pool = ReplayBuffer(state_dim, action_dim, max_size=args.replay_size)
+     # Training
+-    train(args, env, agent, env_pool)
++    progress = train(args, env, agent, env_pool, hybrid)
++    return env, agent, env_pool, progress
+ 
+ 
+ if __name__ == "__main__":

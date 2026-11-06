@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cad-simulator": {
+      "command": "python",
+      "args": [
+        "-B",
+        "mcp_server.py"
+      ],
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "timeoutSeconds": 600
+    }
+  }
+}

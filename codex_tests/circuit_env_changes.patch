@@ -1,0 +1,141 @@
+--- before/circuit_env.py
++++ after/circuit_env.py
+@@ -16,6 +16,8 @@
+         self.max_steps_per_episode = 10
+         self.env_steps = 0
+         self.episode_steps = 0
++        self.simulation_count = 0  # Includes reset evaluations and failed attempts.
++        self.simulation_error = None
+         self.success_threshold = success_threshold
+         self.circuit_name = circuit_name
+ 
+@@ -55,6 +57,8 @@
+ 
+         # spec reward weights
+         self.spec_weights = yaml_data['spec_weights']
++        self.failure_reward = -sum(self.spec_weights[s] for s in self.hard_constraints) - 0.05 * sum(
++            self.spec_weights[s] for s in self.optimization_targets)
+ 
+         self.reward_history = []
+         self.score_history = []
+@@ -62,7 +66,7 @@
+         self.counter = 0
+         self.pvt_corner = {'process': 'TT', 'voltage': 1.2, 'temp': 27}
+     
+-    
++
+     def action_refine(self, action):
+         params = {}
+ 
+@@ -99,6 +103,8 @@
+             vdd=self.pvt_corner["voltage"]
+         )
+ 
++        os.makedirs(self.simulation_engine.output_files_folder, exist_ok=True)
++        self.simulation_count += 1
+         info = self.simulation_engine.simulate(netlist_path)
+ 
+         if info != 0:
+@@ -108,22 +114,37 @@
+ 
+         return specs
+ 
+-    
++
+     
+     def normalize_specs(self, spec_dict):
+         normalized = {}
+ 
+-        for name, value in spec_dict.items():
++        for name in self.dict_targets:
++            value = spec_dict.get(name)
+             target = self.dict_targets[name]
++            if value is None or not np.isfinite(value) or value + target == 0:
++                raise ValueError(f"Invalid measurement: {name}={value}")
+             normalized[name] = (value - target) / (value + target)
++            if not np.isfinite(normalized[name]) or abs(normalized[name]) > np.finfo(np.float32).max:
++                raise ValueError(f"Invalid normalized measurement: {name}")
+ 
+         return normalized
+ 
+     
+     def evaluate(self, action):
+         self.param_values = self.action_refine(action)
+-        self.real_specs = self.simulate(self.param_values)
+-        self.cur_norm_specs = self.normalize_specs(self.real_specs)
++        self.real_specs = None
++        self.simulation_error = None
++        try:
++            self.real_specs = self.simulate(self.param_values)
++            self.cur_norm_specs = self.normalize_specs(self.real_specs)
++        except (OSError, RuntimeError, ValueError, ZeroDivisionError) as error:
++            self.simulation_error = str(error)
++            # Worst-direction finite observation; keep raw measurements for diagnosis.
++            self.cur_norm_specs = {
++                name: 1.0 if name in self.optimization_targets or name == 'noise' else -1.0
++                for name in self.dict_targets
++            }
+     
+     def reset(self, *, seed=None, options=None):
+         """
+@@ -154,7 +175,7 @@
+         action = self.action_space.sample()
+ 
+         self.evaluate(action)
+-            
++
+         self.score = 0.0
+ 
+         ob = np.array(
+@@ -193,9 +214,10 @@
+         """
+         self.evaluate(action)
+ 
+-        reward, hard_satisfied = self.reward_computation(
+-            self.cur_norm_specs
+-        )
++        if self.simulation_error is not None:
++            reward, hard_satisfied = self.failure_reward, False
++        else:
++            reward, hard_satisfied = self.reward_computation(self.cur_norm_specs)
+ 
+         ob = np.array(
+             list(self.cur_norm_specs.values()),
+@@ -223,7 +245,9 @@
+             plotLearning(self.score_history, self.run_id)
+             self.score = 0.0
+ 
+-        info = {"hard_satisfied": hard_satisfied}
++        info = {"hard_satisfied": hard_satisfied,
++                "invalid_simulation": self.simulation_error is not None,
++                "simulation_error": self.simulation_error}
+ 
+         return ob, reward, done, info
+ 
+@@ -248,7 +272,10 @@
+             - If not, add weighted reward components of the optimization targets.
+         4. Return the computed reward and the hard_satisfied flag.
+         """
+-        
++
++        if any(value is None or not np.isfinite(value) for value in norm_specs.values()):
++            return self.failure_reward, False
++
+         #hard constraints reward
+         reward = 0.0
+ 
+@@ -275,6 +302,8 @@
+         else:
+             reward += 0.05 * r_targets #in slide 46
+ 
++        if not np.isfinite(reward) or abs(reward) > np.finfo(np.float32).max:
++            return self.failure_reward, False
+         return float(reward), bool(hard_satisfied)
+ 
+ 
+@@ -301,3 +330,5 @@
+     print("Next specs: ", env.real_specs)
+     print("Reward: ", reward)
+     print("Done: ", done)
++    print("Info: ", info)
++    print("Simulation attempts: ", env.simulation_count)

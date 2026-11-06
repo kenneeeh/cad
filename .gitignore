@@ -1,0 +1,35 @@
+# Python environment
+.venv/
+venv/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Secrets (API keys loaded via python-dotenv)
+.env
+.env.*
+
+*_TwoStage.csv
+
+# Simulation scratch output (regenerated every run; cleaned by clean.sh)
+no_backup/
+
+# Editor / OS clutter
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local tools, generated evidence and credentials
+.tools/
+artifacts/
+runs/
+*.exe
+*.dll
+*.so
+*.pyd
+*.key
+*.pem

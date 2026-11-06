@@ -1,0 +1,363 @@
+"""No real simulations by default. All unit measurements are MOCKS, not training evidence."""
+from copy import deepcopy
+import asyncio
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock, patch
+import numpy as np
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
+ARTIFACTS = HERE / 'artifacts/replay'
+os.environ.setdefault('MPLCONFIGDIR', str(ARTIFACTS / 'matplotlib'))
+os.environ.setdefault('MPLBACKEND', 'Agg')
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(REPO))
+from circuit_env import CircuitEnv
+from td3 import ReplayBuffer
+from llm.circuit_adapter import CircuitAdapter
+from llm.candidates import CandidateArchive
+from llm.replay_injection import physical_to_action, inject_llm_candidates, tracked_call, reconcile_costs, write_event
+import td3_runner
+
+PARAMETERS = json.loads((REPO / 'llm/initial_design.json').read_text())
+
+
+class TestReplayInjection(unittest.TestCase):
+    def setUp(self):
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        self.folder = Path(tempfile.mkdtemp(prefix='mock_', dir=ARTIFACTS))
+        old_cwd = Path.cwd()
+        os.chdir(REPO)
+        self.env = CircuitEnv(run_id='MOCK-ONLY')
+        self.addCleanup(os.chdir, old_cwd)
+        # Plot/netlist scratch must remain under codex_tests.
+        os.chdir(self.folder)
+        self.env.simulation_engine.output_netlists_folder = str(self.folder / 'netlists')
+        self.env.simulation_engine.output_files_folder = str(self.folder / 'outputs')
+        self.simulate = patch.object(self.env.simulation_engine, 'simulate', return_value=0).start()
+        patch.object(self.env.simulation_engine, 'measure_metrics', side_effect=self.current_specs).start()
+        patch('circuit_env.plot_running_maximum').start()
+        patch('circuit_env.plotLearning').start()
+        self.addCleanup(patch.stopall)
+        self.adapter = CircuitAdapter(self.env, REPO)
+        self.archive = CandidateArchive(self.folder / 'archive.jsonl', self.adapter.context()['problem_id'])
+        self.buffer = ReplayBuffer(self.env.obs_dim, self.env.n_actions, max_size=16)
+        self.ids = set()
+        action = physical_to_action(PARAMETERS, self.env)
+        patch.object(self.env.action_space, 'sample', return_value=action).start()
+        self.observation = self.env.reset()
+
+    def current_specs(self):
+        return self.specs(self.env.simulation_engine.circuit_params)
+
+    def specs(self, parameters):
+        return dict(self.env.dict_targets, gain=210. + parameters['res']/1000., current=1.4e-4,
+                    area=1e-9, phm=65., noise=.005, ugbw=2e6, slewRate=16.)
+
+    def candidate(self, **changes):
+        parameters = dict(PARAMETERS, **changes)
+        return self.archive.add(parameters, self.adapter.assess(self.specs(parameters)), 'LLM', 'MOCK-LLM-RUN',
+            {'completed': True, 'simulator': 'ngspice', 'simulation_id': 'mock-' + str(len(self.archive.records())),
+             'session_id': 'mock-mcp-session', 'test_only': True}, hypothesis='MOCK evaluation for replay testing')
+
+    def inject(self, **kwargs):
+        return inject_llm_candidates(self.archive.path, self.buffer, self.env, self.ids, **kwargs)
+
+    def snapshot(self):
+        return deepcopy({name: getattr(self.env, name) for name in ('counter', 'episode_steps', 'env_steps',
+            'param_values', 'real_specs', 'cur_norm_specs', 'score', 'reward_history', 'score_history')})
+
+    def args(self, **kwargs):
+        return SimpleNamespace(w=kwargs.get('w', 2), T=kwargs.get('T', 4),
+            llm_archive=self.archive.path, llm_warmup=kwargs.get('llm_warmup', 0),
+            llm_every=kwargs.get('llm_every', 0), llm_per_check=1,
+            accounting_log=self.folder / 'costs.jsonl')
+
+    def test_action_roundtrip_for_all_min_max_and_interior_grid_values(self):
+        for fraction in (0., .5, 1.):
+            parameters = {n: (high if fraction == 1 else low + round(fraction*(high-low)/step)*step)
+                          for n, (low, high, step) in self.env.dict_params.items()}
+            action = physical_to_action(parameters, self.env)
+            self.assertEqual(action.shape, (20,))
+            self.assertEqual(action.dtype, np.float32)
+            self.assertTrue(np.all(np.abs(action) <= 1))
+            actual = self.env.action_refine(action)
+            for name, (_, _, step) in self.env.dict_params.items():
+                self.assertAlmostEqual((actual[name]-parameters[name])/step, 0., places=7)
+        with self.assertRaises(ValueError):
+            physical_to_action(dict(PARAMETERS, res=6150.), self.env)
+
+    def test_correct_transition_and_no_active_episode_changes(self):
+        record = self.candidate(res=6100.)
+        before = self.snapshot()
+        simulation_id = self.env.simulation_engine.random_name
+        calls = self.simulate.call_count
+        summary = self.inject()
+        self.assertEqual(summary['injected'], 1)
+        self.assertEqual(summary['new_simulation_attempts'], 0)
+        np.testing.assert_array_equal(self.buffer.state[0], self.observation)
+        np.testing.assert_array_equal(self.buffer.next_state[0],
+            np.array(list(self.env.normalize_specs(record['specs']).values()), dtype=np.float32))
+        self.assertEqual(self.env.action_refine(self.buffer.action[0]),
+                         self.env.action_refine(physical_to_action(record['parameters'], self.env)))
+        self.assertAlmostEqual(float(self.buffer.reward[0, 0]), record['reward'])
+        self.assertEqual(self.buffer.not_done[0, 0], 1.)  # Feasibility does not terminate an episode.
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.env.simulation_engine.random_name, simulation_id)
+        self.assertEqual(self.simulate.call_count, calls)
+        self.assertEqual(self.buffer._llm_provenance[0]['design_id'], record['design_id'])
+        sample = self.buffer.sample(1)  # Actual existing API order: s, a, s', r, not_done.
+        self.assertEqual(tuple(sample[2].shape), (1, 7))
+        self.assertEqual(tuple(sample[3].shape), (1, 1))
+
+    def test_terminal_flag_matches_episode_time_limit_without_advancing(self):
+        self.candidate()
+        self.env.episode_steps = 9
+        self.assertEqual(self.inject()['injected'], 1)
+        self.assertEqual(self.buffer.not_done[0, 0], 0.)
+        self.assertEqual(self.env.episode_steps, 9)
+        self.candidate(res=6100.)
+        self.env.episode_steps = 10
+        result = self.inject()
+        self.assertEqual(result['injected'], 0)
+        self.assertEqual(result['rejected'], 1)
+
+    def test_real_preceding_state_is_required(self):
+        self.candidate()
+        self.candidate(res=6100.)
+        self.env.counter = 0
+        self.assertEqual(self.inject()['rejected'], 2)
+        self.env.counter = 1
+        self.env.cur_norm_specs['gain'] += .1
+        self.assertEqual(self.inject()['rejected'], 2)
+        self.assertEqual(self.buffer.size, 0)
+
+    def test_reordered_record_specs_follow_environment_observation_order(self):
+        record = self.candidate(res=6100.)
+        record['specs'] = dict(reversed(list(record['specs'].items())))
+        self.archive.path.write_text(json.dumps(record)+'\n')
+        self.inject()
+        expected = self.env.normalize_specs(record['specs'])
+        np.testing.assert_array_equal(self.buffer.next_state[0],
+            np.array([expected[n] for n in self.env.dict_targets], dtype=np.float32))
+
+    def test_absolute_action_has_same_result_from_two_measured_states(self):
+        record = self.candidate(res=6200.)
+        action = physical_to_action(record['parameters'], self.env)
+        next1, reward1, _, _ = self.env.step(action)
+        self.env.step(physical_to_action(dict(PARAMETERS, res=7000.), self.env))
+        next2, reward2, _, _ = self.env.step(action)
+        np.testing.assert_array_equal(next1, next2)
+        self.assertEqual(reward1, reward2)
+        self.inject()
+        np.testing.assert_array_equal(self.buffer.next_state[0], next2)
+        self.assertAlmostEqual(self.buffer.reward[0, 0], reward2)
+
+    def test_idempotence_limits_and_same_anchor_for_multiple_imports(self):
+        self.candidate()
+        self.candidate(res=6100.)
+        self.assertEqual(self.inject(limit=1)['injected'], 1)
+        self.assertEqual(self.inject(limit=1)['injected'], 1)
+        summary = self.inject()
+        self.assertEqual((summary['injected'], summary['skipped_duplicates']), (0, 2))
+        np.testing.assert_array_equal(self.buffer.state[0], self.buffer.state[1])
+        self.assertEqual(self.buffer.size, 2)
+
+    def test_invalid_incompatible_unmeasured_and_fixture_records_are_rejected(self):
+        record = self.candidate()
+        bad = [dict(record, problem_id='old-configuration'), dict(record, reward=999.),
+               dict(record, parameters=dict(PARAMETERS, res=6150.)), dict(record, specs={}),
+               dict(record, metadata={'completed': False}),
+               dict(record, metadata={**record['metadata'], 'fixture': True}),
+               {k: v for k, v in record.items() if k != 'run_id'},
+               {k: v for k, v in record.items() if k != 'source'}]
+        self.archive.path.write_text(''.join(json.dumps(r)+'\n' for r in bad))
+        result = self.inject()
+        self.assertEqual(result['rejected'], len(bad))
+        self.assertEqual(self.buffer.size, 0)
+        self.assertEqual(self.ids, set())
+
+    def test_other_sources_ignored_and_bad_json_is_reported(self):
+        record = self.candidate()
+        self.archive.path.write_text(json.dumps(dict(record, source='TD3'))+'\n')
+        self.assertEqual(self.inject()['ignored_non_llm'], 1)
+        self.archive.path.write_text('not JSON\n')
+        self.assertEqual(self.inject()['rejected'], 1)
+        self.assertEqual(self.buffer.size, 0)
+
+    def test_warmup_replaces_only_requested_random_experiences(self):
+        self.candidate()
+        self.candidate(res=6100.)
+        args = self.args(w=4, llm_warmup=2)
+        before = self.env.counter
+        with patch.object(td3_runner, 'export_evaluation'):
+            count = td3_runner.warmup_exploration(args, self.env, self.buffer, Mock(), self.ids, args.accounting_log)
+        self.assertEqual((count, self.buffer.size), (4, 4))
+        self.assertEqual(len(self.buffer._llm_provenance), 2)
+        self.assertEqual(self.env.counter-before, 3)  # One reset and two random evaluations.
+        self.assertEqual(self.env.episode_steps, 2)
+        costs = reconcile_costs([args.accounting_log])
+        self.assertEqual(costs['td3_attempts_by_origin'], {'reset': 1, 'random_warmup': 2})
+        self.assertEqual(costs['imported_experiences'], 2)
+        self.assertEqual(len(costs['missing_imported_evaluations']), 2)
+
+    def test_post_warmup_checkpoint_reads_new_candidate_and_preserves_actor_obs(self):
+        self.env.max_steps_per_episode = 2
+        args = self.args(w=0, T=2, llm_every=1)
+        actor = Mock()
+        actor.select_action.return_value = physical_to_action(PARAMETERS, self.env)
+        original_step = self.env.step
+        observed = []
+
+        def step(action):
+            result = original_step(action)
+            observed.append(result[0].copy())
+            if len(observed) == 1:
+                self.candidate(res=6100.)  # Explicitly produced before the next between-batch checkpoint.
+            return result
+
+        with patch.object(self.env, 'step', side_effect=step), patch.object(td3_runner, 'export_evaluation'), \
+             patch.object(td3_runner, 'train_policy') as update:
+            td3_runner.train(args, self.env, actor, self.buffer)
+        self.assertEqual(update.call_count, 2)
+        self.assertEqual(self.buffer.size, 3)
+        np.testing.assert_array_equal(actor.select_action.call_args_list[1].args[0], observed[0])
+        self.assertEqual(len(self.buffer._llm_provenance), 1)
+        costs = reconcile_costs([args.accounting_log])
+        self.assertEqual(costs['completed_update_calls'], 2)  # Mocked learner calls, not gradients.
+        self.assertEqual(costs['imported_experiences'], 1)
+
+    def test_warmup_and_training_share_import_ids(self):
+        self.env.max_steps_per_episode = 2
+        self.candidate(res=6100.)
+        args = self.args(w=2, T=4, llm_warmup=1, llm_every=1)
+        actor = Mock()
+        actor.select_action.return_value = physical_to_action(PARAMETERS, self.env)
+        with patch.object(td3_runner, 'export_evaluation'), patch.object(td3_runner, 'train_policy'):
+            td3_runner.train(args, self.env, actor, self.buffer)
+        costs = reconcile_costs([args.accounting_log])
+        self.assertEqual(costs['imported_experiences'], 1)
+        self.assertEqual(self.buffer.size, 4)
+
+    def test_terminal_checkpoint_is_deferred_until_measured_reset(self):
+        self.env.max_steps_per_episode = 1
+        self.candidate(res=6100.)
+        args = self.args(w=0, T=2, llm_every=1)
+        actor = Mock()
+        actor.select_action.return_value = physical_to_action(PARAMETERS, self.env)
+        with patch.object(td3_runner, 'export_evaluation'), patch.object(td3_runner, 'train_policy'):
+            td3_runner.train(args, self.env, actor, self.buffer)
+        self.assertEqual(len(self.buffer._llm_provenance), 1)
+        provenance = next(iter(self.buffer._llm_provenance.values()))
+        self.assertEqual(provenance['episode_step'], 0)
+        self.assertTrue(provenance['done'])  # Current one-step-horizon semantics, not feasibility.
+
+    def test_standard_warmup_unchanged_when_disabled(self):
+        self.env.max_steps_per_episode = 2
+        args = SimpleNamespace(w=3, T=4)
+        with patch.object(td3_runner, 'inject_llm_candidates') as inject, \
+             patch.object(td3_runner, 'export_evaluation'):
+            td3_runner.train(args, self.env, Mock(), self.buffer)
+        inject.assert_not_called()
+        # Existing runner completes warmup episodes, overshooting w=3 to four steps.
+        self.assertEqual(self.buffer.size, 4)
+        self.assertFalse(hasattr(self.buffer, '_llm_provenance'))
+
+    def test_overwritten_ordinary_slots_remove_llm_provenance(self):
+        self.buffer = ReplayBuffer(7, 20, max_size=2)
+        self.candidate()
+        self.inject()
+        args = SimpleNamespace(w=2)
+        self.env.max_steps_per_episode = 2
+        with patch.object(td3_runner, 'export_evaluation'):
+            td3_runner.warmup_exploration(args, self.env, self.buffer, Mock())
+        self.assertEqual(self.buffer._llm_provenance, {})
+
+    def test_accounting_failed_resets_import_cost_and_copied_logs(self):
+        log = self.folder / 'accounting.jsonl'
+
+        def fail():
+            self.env.counter += 1
+            raise RuntimeError('MOCK failed simulator')
+
+        with self.assertRaises(RuntimeError):
+            tracked_call(self.env, 'reset', fail, log)
+        tracked_call(self.env, 'update', lambda: None, log)
+        write_event(log, {'kind': 'replay_import', 'design_id': 'd1', 'simulation_id': 'llm1', 'new_simulation_attempts': 0})
+        audit = self.folder / 'calls.jsonl'
+        records = [{'session_id': 's1', 'result': {'simulation_count': n, 'simulation_id': 'llm'+str(n)}} for n in (1, 2)]
+        records.append({'session_id': 's2', 'result': {'simulation_count': 1, 'simulation_id': 'llm3'}})
+        audit.write_text(''.join(json.dumps(r)+'\n' for r in records))
+        copied = self.folder / 'copied_calls.jsonl'
+        copied.write_bytes(audit.read_bytes())
+        result = reconcile_costs([log, log], [audit, copied])
+        self.assertEqual(result['new_simulation_attempts'], 4)  # 1 reset + (2 + 1) distinct MCP attempts.
+        self.assertEqual(result['imported_experiences'], 1)
+        self.assertEqual(result['failed_td3_calls'], 1)
+        self.assertEqual(result['completed_update_calls'], 1)
+        self.assertEqual(result['missing_imported_evaluations'], [])
+        self.assertFalse(result['usage_complete'])
+
+
+@unittest.skipUnless(os.environ.get('CAD_REPLAY_REAL') == '1', 'Opt-in: TWO full simulations, no LLM/training')
+class TestRealReplay(unittest.TestCase):
+    def test_measured_reset_and_mcp_design_enter_actual_replay_without_resimulation(self):
+        asyncio.run(self.run_smoke())
+
+    async def run_smoke(self):
+        from mcp import ClientSession
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+        ARTIFACTS.mkdir(parents=True, exist_ok=True)
+        folder = Path(tempfile.mkdtemp(prefix='real_', dir=ARTIFACTS))
+        old_cwd = Path.cwd()
+        os.chdir(REPO)
+        self.addCleanup(os.chdir, old_cwd)
+        env = CircuitEnv(run_id='replay-smoke-no-training')
+        env.simulation_engine.output_netlists_folder = str(folder / 'reset_netlists')
+        env.simulation_engine.output_files_folder = str(folder / 'reset_outputs')
+        action = physical_to_action(PARAMETERS, env)
+        log = folder / 'td3_costs.jsonl'
+        with patch.object(env.action_space, 'sample', return_value=action):
+            observation = tracked_call(env, 'reset', env.reset, log)  # ONE actual reset simulation.
+        archive_path = folder / 'archive.jsonl'
+        process = StdioServerParameters(command=sys.executable, args=['-B', str(REPO / 'llm/mcp_server.py')],
+            env={**os.environ, 'CAD_MAX_SIMULATIONS': '1', 'CAD_RUNS_DIR': str(folder / 'mcp'),
+                 'CAD_ARCHIVE_PATH': str(archive_path), 'CAD_RUN_ID': 'replay-sdk-fixed-proposal-no-model'})
+        async with stdio_client(process) as streams:
+            async with ClientSession(*streams, read_timeout_seconds=60) as client:
+                await client.initialize()
+                candidate = env.action_refine(physical_to_action(dict(PARAMETERS, res=6100.), env))
+                measured = (await client.call_tool('simulate_design', {'parameters': candidate,
+                    'hypothesis': 'Fixed SDK integration-test proposal; no model generated this change.'})).structured_content
+                self.assertTrue(measured['success'], measured)  # ONE actual candidate simulation.
+        before = deepcopy((env.counter, env.episode_steps, env.env_steps, env.cur_norm_specs,
+                           env.param_values, env.simulation_engine.random_name))
+        buffer = ReplayBuffer(7, 20, max_size=4)
+        imported = inject_llm_candidates(archive_path, buffer, env, set(), log_path=log)
+        self.assertEqual(imported['injected'], 1)
+        self.assertEqual(imported['new_simulation_attempts'], 0)
+        self.assertEqual((env.counter, env.episode_steps, env.env_steps, env.cur_norm_specs,
+                          env.param_values, env.simulation_engine.random_name), before)
+        np.testing.assert_array_equal(buffer.state[0], observation)
+        np.testing.assert_array_equal(buffer.next_state[0],
+            np.array([env.normalize_specs(measured['specs'])[n] for n in env.dict_targets], dtype=np.float32))
+        costs = reconcile_costs([log], list((folder / 'mcp').glob('session_*/calls.jsonl')))
+        self.assertEqual(costs['new_simulation_attempts'], 2)
+        self.assertEqual(costs['imported_experiences'], 1)
+        self.assertEqual(costs['missing_imported_evaluations'], [])
+        self.assertEqual(costs['completed_update_calls'], 0)
+        report = {'execution': 'Real CircuitEnv + MCP + ReplayBuffer. Fixed SDK proposal, NO LLM generation or TD3 training.',
+                  'actual_simulations': 2, 'model_calls': 0, 'gradient_updates': 0,
+                  'import': imported, 'candidate_result': measured, 'reconciled_costs': costs}
+        (folder / 'replay_smoke.json').write_text(json.dumps(report, indent=2, allow_nan=False))
+        print('TWO actual ngspice calls; no replay re-simulation. Evidence:', folder / 'replay_smoke.json')
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
