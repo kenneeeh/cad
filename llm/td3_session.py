@@ -10,6 +10,7 @@ from circuit_env import CircuitEnv
 from td3 import TD3, ReplayBuffer
 import td3_runner
 from llm.replay_injection import inject_llm_candidates
+from llm.td3_candidates import record_reset_evaluation
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = REPO / 'output_figs/2026-11-05--18-35-18/params.json'
@@ -59,6 +60,7 @@ class TD3Session:
         try:
             if self.state['done']:
                 self.state.update(obs=self.env.reset(), done=False)
+                record_reset_evaluation(self.env)
             replay = self.flush()
             batch = copy(self.args)
             batch.w = batch.T = n_steps  # Batch lengths, not learning hyperparameters.

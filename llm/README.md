@@ -69,12 +69,46 @@ writes successful random/policy evaluations directly into the shared archive.
 The following are future model-run commands; validation did not launch Antigravity:
 
 ```powershell
-# Default guided exploration -> random diversity -> alternating TD3/interventions.
-.\.venv\Scripts\python.exe -B llm\run_experiment.py --budget 20
+# Default: warmup -> large training batches -> occasional LLM interventions.
+.\.venv\Scripts\python.exe -B llm\run_experiment.py --budget 2400
 
 # Standalone LLM evaluation, same native two-role setup, TD3 disabled.
-.\.venv\Scripts\python.exe -B llm\run_experiment.py --llm-only --budget 5
+.\.venv\Scripts\python.exe -B llm\run_experiment.py --llm-only --llm-evaluations 5 --budget 5
 ```
+
+Three hybrid strategies use the same existing tools, replay and total-attempt
+budget. For example, from the repository root, each command below uses seed
+123456 and identical learning settings from the same saved configuration:
+
+```powershell
+.\.venv\Scripts\python.exe -B llm\run_experiment.py --strategy interleaved --budget 1200 --warmup-steps 100 --train-steps 900 --llm-evaluations 6 --td3-config output_figs/2026-11-05--18-35-18/params.json
+.\.venv\Scripts\python.exe -B llm\run_experiment.py --strategy td3_then_llm --budget 1200 --warmup-steps 100 --train-steps 900 --llm-evaluations 6 --td3-config output_figs/2026-11-05--18-35-18/params.json
+.\.venv\Scripts\python.exe -B llm\run_experiment.py --strategy llm_then_td3 --budget 1200 --warmup-steps 100 --train-steps 900 --td3-config output_figs/2026-11-05--18-35-18/params.json
+```
+
+`interleaved` warms up TD3 first and continues large training batches around
+occasional specialist-guided interventions. `td3_then_llm` reserves budget for
+final local refinement of the best measured TD3 policy design, with no later
+training. `llm_then_td3` permits no TD3 calls until eight consecutive non-improving
+LLM attempts or 30 total LLM attempts in that run; then it warms up and trains
+without further LLM evaluations. Strictly greater reward resets the streak;
+ties, worse results and failed simulations increment it. Invalid zero-attempt
+calls and historical archive records do not count. Probe batch sizes are capped
+to avoid crossing the trigger. If budget runs out first, TD3 is not reached.
+
+The strategy is a native coordinator instruction, not a new Python scheduler
+or backend phase gate. Actual audited phase order/counts are checked after execution.
+Total simulation limits remain backend-enforced, including resets/failures.
+Large train batches are capped at 500 and must fit with resets and later phases.
+No targets change: rising slew >=30 V/us and UGBW >=100 MHz, plus the other
+existing constraints. Equal seeds/settings do not guarantee identical trajectories.
+
+Each run saves its resolved `prompt.txt`; `summary.json` records strategy,
+configuration/seed, new phase counts and candidate IDs. Existing ordered archive
+records retain source, TD3 warmup/policy phase, LLM hypothesis phase prefixes and
+parents; `session_*/calls.jsonl` retains ordered evaluations and training batches.
+Together with the final response's switch counts/ID, these reconstruct phase
+progress without a second logging system. Each command defaults to a fresh archive.
 
 The launcher reuses the current model/sign-in and writes candidates.jsonl,
 session calls.jsonl and one summary.json under ignored llm/runs/. Use --archive
@@ -82,7 +116,119 @@ PATH to choose the archive and --td3-config PATH to choose an existing saved
 params.json. Default settings come unchanged from the teammate's committed
 output_figs/2026-11-05--18-35-18/params.json (noise=.03, batch=64, pi_lr=.0005,
 q_lr=.001, seed=123456). w/T in that file are standalone totals; MCP call arguments
-specify batch lengths. No hardcoded LLM/random ratio or learning-setting MCP tool.
+specify batch lengths. No learning-setting MCP tool is added.
+
+## Report-ready completion and runtime data
+
+Before launch, a fixed plan is saved in `manifest.json` and supplied to the
+coordinator. Defaults are the saved `w` warmup steps, `T-w` policy steps and six
+LLM attempts; the default budget is now 2400 to fit that full schedule. Override
+counts explicitly with `--warmup-steps`, `--train-steps`, `--llm-evaluations`.
+LLM-first retains its conditional 8-consecutive/30-total exploration phase.
+Interleaved divides the policy steps into two predefined halves around one LLM
+intervention phase. TD3-then-LLM performs all learning before final refinement.
+An unaffordable plan is rejected before any CLI launch, accounting for the existing
+episode horizon and resets. Unused budget after protocol completion is acceptable.
+
+The coordinator must complete the plan even after finding a feasible/positive
+reward design. No minimum-reward stop exists. Plateau in LLM-first changes phase,
+not experiment completion. Allowed stops are completion, budget exhaustion or
+execution error. `summary.json` reports planned/completed phase steps, errors,
+`stop_reason`, `incomplete` and `success`. A CLI `SUCCESS` with unfinished phases
+is an unsuccessful, incomplete run. Wrong phase order or extra evaluations also
+fail the protocol check. Execution errors and budget stops retain partial progress.
+
+Each new archive record has `metadata.elapsed_s` at measurement export, relative
+to the launcher's monotonic start before Antigravity is launched. This includes
+LLM latency, simulator work and all intervening TD3 work, rather than summing tool
+durations. `metadata.origin` distinguishes LLM, random_warmup and TD3;
+`cumulative_simulation_count` includes LLM attempts, TD3 steps and measured resets.
+The existing local `simulation_count` remains available. For direct standalone
+TD3 exports, the time origin is the archive module's import during runner startup;
+there is no LLM offset. Measurements are available before the current step's
+gradient update; subsequent elapsed times include that update. The final run
+wall time includes completion and final-model response overhead.
+
+For runtime-versus-FoM, select the current run's newly evaluated IDs, sort their
+archive records by elapsed_s, filter hard_satisfied=true, and take the running
+maximum reward. Before the first feasible measurement, the curve is unavailable,
+not zero. Keep source-specific curves as well as the combined curve. This measures
+best observed designs, not deterministic final-actor quality. A TD3-only schedule
+can use `--strategy interleaved --llm-evaluations 0` with the same warmup/training
+counts: no guided simulations are requested, though native coordination still has
+LLM runtime/token overhead. The unmodified standalone runner also exports timestamps.
+
+`manifest.json` preserves full TD3 settings/seed, initial design, YAML targets/grids,
+model, strategy, budget, horizon, plan and SHA256 identifiers for source, native
+agents/skills and configuration files. A frozen `td3_config.json` is passed to the
+backend. `prompt.txt`, the CLI result and stderr are retained. Public native
+tool events (including schema rejections before Python tools run) are saved in
+`public_events.jsonl`; private intermediate text is omitted. Existing calls.jsonl
+now records actual tool arguments/results, elapsed times and replay outcomes;
+the detailed TD3 batch IDs remain on disk, without enlarging model responses.
+Probe outer calls and individual evaluations are both recorded; count only the
+individual evaluation tool events for protocol progress. For actual process cost,
+count only `simulation_attempt` entries, never add tool counters to those entries.
+Short hypotheses and changed values remain linked through parent/candidate IDs;
+keep/reject/follow-up decisions must reference measured IDs in the next hypothesis
+or saved final response. These are the agent's actual statements, not reconstructed
+explanations. Historical records are not rewritten or assigned inferred timestamps.
+
+## Simulation efficiency and hypothetical scaling
+
+Every actual ngspice invocation now appends a `simulation_attempt` entry to the
+existing session `calls.jsonl`: global simulation index, simulation ID, initiating
+phase (LLM/warmup/train), elapsed time, subprocess wall time and return code.
+This includes reset evaluations, failed processes and failed launches. Invalid
+parameter calls and replay insertion launch no simulator and add no attempt.
+Candidate records retain their source/origin and matching global index. A reset
+or an evaluation rejected during later measurement may have no candidate record;
+its process attempt is still charged. Do not classify every unmatched ID as a reset.
+Direct standalone TD3 writes the same attempt entries beside its saved params.json
+as `output_figs/<run_id>/simulation_attempts.jsonl`; its training/warmup behavior is unchanged.
+
+New launcher summaries automatically include `efficiency`: best-so-far feasible
+reward versus both elapsed time and simulation index, strict new-best milestones
+with candidate IDs/origins, phase attempt totals, and first-hit costs at common
+FoM thresholds .1, .3, .5 and .6. Thresholds are reporting points, never stop rules.
+No feasible observation means an unavailable curve, not a zero-valued solution.
+Unreached thresholds are censored, not successful zero-cost results.
+
+To compare existing launcher run directories offline (no models/training/simulation):
+
+```powershell
+.\.venv\Scripts\python.exe -B llm/efficiency.py llm/runs/HYBRID_RUN --baseline llm/runs/TD3_ONLY_RUN --thresholds .1 .3 .5 .6 --output codex_tests/artifacts/efficiency/comparison.json
+```
+
+Pass several hybrid directories to compare all three strategies at the same
+thresholds. Use a fresh-archive `--llm-evaluations 0` run as the coordinated TD3-only
+baseline; coordination overhead remains charged. The lightweight
+`summarize_efficiency(records, events, attempts, thresholds)` function also accepts
+standalone TD3's archive and attempt log directly. Historical runs lacking exact
+timestamps, IDs or complete per-attempt timing report missing coverage; costs are
+not reconstructed from rounded figures or assumed average simulator durations.
+
+Simulator execution time is subprocess wall time only, excluding netlist creation,
+metric parsing and learning. `td3_non_simulator_batch_s` includes updates, plotting,
+replay and setup: it is not a pure gradient-computation timer. Pure LLM inference
+and pure TD3 compute time remain unknown because the existing instrumentation
+does not isolate them. All of these costs still contribute to elapsed wall time.
+
+When both methods reach the same feasible threshold with complete simulator
+timing, matching setup/source identifiers and identical TD3 settings/seed, the
+offline comparison can report a hypothetical break-even cost. With N measured
+attempts and O = elapsed time to threshold minus measured simulator time:
+
+`c_break_even = (O_hybrid - O_TD3) / (N_TD3 - N_hybrid)` seconds per attempt.
+
+This requires fewer hybrid attempts; if its overhead is already lower, no positive
+minimum simulator cost is required. The model assumes each future attempt costs
+the same c and non-simulator overhead stays unchanged. Real cost depends on the
+design, convergence, hardware and workload; saving one attempt does not imply a
+fixed runtime saving. This hypothetical extrapolation is not a measured speedup
+or evidence of hybrid superiority. Missing timing, incompatible settings, uncharged
+external designs or unreached thresholds produce no break-even claim; matched
+repeated trials remain needed.
 
 For direct MCP use, CAD_HYBRID defaults to 1; CAD_HYBRID=0 disables TD3.
 CAD_TD3_CONFIG overrides the saved settings path. The coordinator uses native

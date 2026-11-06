@@ -41,7 +41,24 @@ class TestSimulatorTool(unittest.TestCase):
         self.assertTrue(record['metadata']['completed'])
         self.assertEqual(result['simulation_count'], 1)
         audit = json.loads((server.RUN / 'calls.jsonl').read_text().splitlines()[-1])
-        self.assertNotIn('specs', audit['result'])  # Successful measurements are stored once.
+        self.assertEqual(audit['arguments']['hypothesis'], 'Measure the initial design.')
+        self.assertEqual(audit['result']['specs'], record['specs'])
+        self.assertEqual(audit['event'], 'tool_call')
+
+    def test_archive_clock_includes_model_delay_and_preserves_origins(self):
+        import candidates
+        with patch.dict(os.environ, {'CAD_EXPERIMENT_START': '100'}), \
+             patch.object(candidates, 'perf_counter', return_value=125.):
+            result = server.simulate_design(PARAMETERS, 'One short measured hypothesis.')
+        record = self.archive.get(result['design_id'])
+        self.assertEqual(record['metadata']['elapsed_s'], 25.)
+        self.assertEqual(record['metadata']['cumulative_simulation_count'], 1)
+        self.assertEqual(record['metadata']['origin'], 'LLM')
+        for phase, origin in (('warmup', 'random_warmup'), ('policy', 'TD3')):
+            record = self.archive.add(PARAMETERS, server.adapter.assess(dict(server.env.dict_targets)),
+                'TD3', 'mock', {'phase': phase, 'simulation_count': 3, 'cumulative_simulation_count': 7})
+            self.assertEqual(record['metadata']['origin'], origin)
+            self.assertEqual(record['metadata']['cumulative_simulation_count'], 7)
 
     def test_invalid_values_do_not_simulate(self):
         for changes in ({'wp1': 1.6e-6}, {'mp1': 26.}, {'mp1': True}, {'cap': float('nan')}, {'bogus': 1.}):
@@ -50,6 +67,32 @@ class TestSimulatorTool(unittest.TestCase):
         self.assertFalse(server.simulate_design({})['success'])
         self.engine.assert_not_called()
         self.assertEqual(server.env.counter, 0)
+
+    def test_backend_schedule_guard_and_reset_measurement_audit(self):
+        from llm.td3_candidates import record_reset_evaluation
+        protocol = {'initial_design': PARAMETERS, 'plan': [
+            {'tool': 'llm', 'steps': 1, 'label': 'initial_design'},
+            {'tool': 'warmup', 'steps': 1}, {'tool': 'train', 'steps': 2}]}
+        with patch.object(server, 'PROTOCOL', protocol), patch.object(server, 'RUN', self.folder), \
+             patch.object(server.env.simulation_engine, 'audit_path', self.folder/'calls.jsonl'):
+            self.assertTrue(server.train(2)['protocol_rejected'])
+            self.assertTrue(server.simulate_design(dict(PARAMETERS, res=6100.))['protocol_rejected'])
+            self.engine.assert_not_called()
+            self.assertTrue(server.simulate_design(PARAMETERS)['success'])
+            self.assertEqual(server.protocol_state()['next_phase']['tool'], 'warmup')
+            self.assertTrue(server.train(2)['protocol_rejected'])
+            with patch.object(server.td3_session, 'run', return_value={'success': True, 'steps': 1}):
+                self.assertTrue(server.warmup(1)['success'])
+            self.assertTrue(server.train(3)['protocol_rejected'])
+            self.assertIsNone(server.td3_session.agent)
+            self.assertEqual(self.engine.call_count, 1)
+        server.env.reset()  # Mocked measurements only; no learner or simulator process.
+        record_reset_evaluation(server.env)
+        log = [json.loads(line) for line in Path(server.env.simulation_engine.audit_path).read_text().splitlines()]
+        reset = [e for e in log if e.get('event') == 'reset_measurement'][-1]
+        self.assertEqual(reset['specs'], server.env.real_specs)
+        self.assertEqual(reset['simulation_index'], server.env.counter)
+        self.assertTrue(reset['design_id'].startswith('reset_'))
 
     def test_shared_budget_includes_failed_attempts(self):
         with patch.object(server, 'MAX_SIMULATIONS', 2):

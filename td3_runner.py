@@ -6,7 +6,8 @@ import numpy as np
 from td3 import TD3, ReplayBuffer
 from circuit_env import CircuitEnv
 from datetime import datetime
-from llm.td3_candidates import export_td3_candidate
+from llm.td3_candidates import export_td3_candidate, record_reset_evaluation
+from llm.candidates import EXPERIMENT_START
 
 
 def export_evaluation(env, reward, info, phase='policy', path=None):
@@ -71,9 +72,13 @@ def train(args, env, agent, env_pool, continuation=None, archive_path=None):
     # MCP batches resume an existing episode and skip automatic warmup.
     total_steps = warmup_exploration(args, env, env_pool, agent) if continuation is None else 0
     warmup_steps = total_steps
+    env.simulation_engine.audit_phase = 'train'  # Logging only, including resets in this phase.
     while total_steps < args.T:
+        resetting = continuation is None or continuation['done']
         obs = (continuation['obs'] if continuation is not None and not continuation['done']
                else env.reset())
+        if resetting:
+            record_reset_evaluation(env)
         done = False
         while not done and (continuation is None or total_steps < args.T):
             action = agent.select_action(obs)
@@ -93,10 +98,14 @@ def train(args, env, agent, env_pool, continuation=None, archive_path=None):
 
 
 def warmup_exploration(args, env, env_pool, agent, continuation=None, archive_path=None):
+    env.simulation_engine.audit_phase = 'warmup'  # Logging only.
     step_counter = 0
     while step_counter < args.w:
+        resetting = continuation is None or continuation['done']
         obs = (continuation['obs'] if continuation is not None and not continuation['done']
                else env.reset())
+        if resetting:
+            record_reset_evaluation(env)
         done = False
         while not done and (continuation is None or step_counter < args.w):
             action = env.action_space.sample()
@@ -129,6 +138,8 @@ def main(args=None):
     np.random.seed(args.seed)
     # Initial environment
     env = CircuitEnv(run_id=args.run_id)
+    env.simulation_engine.audit_path = os.path.join(output_dir, 'simulation_attempts.jsonl')
+    env.simulation_engine.audit_start = EXPERIMENT_START
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
     # Intial agent

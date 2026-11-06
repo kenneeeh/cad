@@ -199,7 +199,8 @@ class TestPersistentSession(unittest.TestCase):
             for key in ('ngspice_attempts', 'remaining', 'buffer_size',
                         'critic_updates', 'actor_updates', 'best_design_id'):
                 self.assertIn(key, result)
-            audit = json.loads((server.RUN / 'calls.jsonl').read_text().splitlines()[-1])
+            audit = [json.loads(line) for line in (server.RUN / 'calls.jsonl').read_text().splitlines()
+                     if json.loads(line).get('event') == 'td3_batch'][-1]
             self.assertEqual(audit['result']['evaluated_design_ids'], ['a', 'b'])
             self.assertEqual(detailed['evaluated_design_ids'], ['a', 'b'])
         self.td3_sim.assert_not_called()
@@ -219,7 +220,8 @@ class TestPersistentSession(unittest.TestCase):
 
     def test_launcher_preserves_measurements_and_reports_cli_failures(self):
         import run_experiment as runner
-        for outcome in ('SUCCESS', 'ERROR', 'nonzero', 'timeout', 'json', 'llm_only'):
+        for outcome in ('SUCCESS', 'early', 'ERROR', 'nonzero', 'timeout', 'json', 'llm_only',
+                        *(s for s in runner.STRATEGIES if s != 'adaptive')):
             with self.subTest(outcome=outcome):
                 workspace = self.folder / outcome / 'llm'
                 workspace.mkdir(parents=True)
@@ -228,29 +230,167 @@ class TestPersistentSession(unittest.TestCase):
                 def cli(command, **kwargs):
                     self.assertEqual(kwargs['env']['CAD_HYBRID'], '0' if outcome == 'llm_only' else '1')
                     self.assertNotIn('{{workflow}}', command[-1])
+                    self.assertEqual(kwargs['env']['CAD_MAX_SIMULATIONS'], '40')
+                    if outcome in runner.STRATEGIES:
+                        self.assertIn(runner.STRATEGIES[outcome], command[-1])
+                        self.assertIn('slewRate >=30 V/us and ugbw >=100 MHz', command[-1])
                     archive = CandidateArchive(kwargs['env']['CAD_ARCHIVE_PATH'], self.archive.problem_id)
                     archive.add(PARAMETERS, server.adapter.assess(dict(server.env.dict_targets)),
                         'LLM', kwargs['env']['CAD_RUN_ID'], {'completed': True, 'simulator': 'ngspice', 'simulation_id': 'MOCK'})
                     audit = Path(kwargs['env']['CAD_RUNS_DIR']) / 'session_mock'
                     audit.mkdir()
-                    (audit / 'calls.jsonl').write_text(json.dumps({'result': {'simulation_count': 1, 'critic_updates': 0}})+'\n')
+                    plan = json.loads((Path(kwargs['env']['CAD_RUNS_DIR']) / 'manifest.json').read_text())['plan']
+                    events, attempts = [], 0
+                    for phase in plan:
+                        tool = 'simulate_design' if phase['tool'] == 'llm' else phase['tool']
+                        count = 9 if phase.get('plateau') else phase['steps']
+                        for _ in range(count if tool == 'simulate_design' else 1):
+                            attempts += 1
+                            events.append({'event': 'tool_call', 'tool': tool, 'ngspice_attempts': 1,
+                                'elapsed_s': float(len(events)), 'result': {'success': True,
+                                'reward': .3, 'steps': phase['steps'], 'simulation_count': attempts}})
+                    if outcome == 'early':
+                        events = events[:1]  # Feasible candidate + successful CLI, unfinished training.
+                    (audit / 'calls.jsonl').write_text(''.join(json.dumps(e)+'\n' for e in events))
                     if outcome == 'timeout':
                         raise subprocess.TimeoutExpired(command, 330)
                     status = 'ERROR' if outcome == 'ERROR' else 'SUCCESS'
                     return backend.SimpleNamespace(returncode=2 if outcome == 'nonzero' else 0,
                         stdout='bad JSON' if outcome == 'json' else json.dumps({'status': status, 'usage': {'input_tokens': 5}}),
                         stderr='CLI failure')
-                argv = ['run_experiment.py', '--budget', '3', '--td3-config', str(DEFAULT_CONFIG)]
+                argv = ['run_experiment.py', '--budget', '40', '--warmup-steps', '1',
+                        '--train-steps', '2', '--llm-evaluations', '1', '--td3-config', str(DEFAULT_CONFIG)]
                 if outcome == 'llm_only':
                     argv += ['--llm-only']
+                elif outcome in runner.STRATEGIES:
+                    argv += ['--strategy', outcome]
                 with patch.object(runner, 'HERE', workspace), patch.object(runner, 'setup_id', return_value=self.archive.problem_id), \
                      patch.object(sys, 'argv', argv), patch.object(runner.subprocess, 'run', side_effect=cli), \
                      patch('sys.stdout', io.StringIO()):
                     code = runner.main()
                 summary = json.loads(next((workspace / 'runs').glob('*/summary.json')).read_text())
-                self.assertEqual(code, 0 if outcome in ('SUCCESS', 'llm_only') else 1)
+                self.assertEqual(code, 0 if outcome in ('SUCCESS', 'llm_only', *runner.STRATEGIES) else 1)
                 self.assertIsNotNone(summary['best'])
-                self.assertEqual(summary['ngspice_attempts'], 1)
+                self.assertGreater(summary['ngspice_attempts'], 0)
+                if outcome == 'early':
+                    self.assertEqual(summary['cli_status'], 'SUCCESS')
+                    self.assertTrue(summary['incomplete'])
+                    self.assertFalse(summary['success'])
+                    self.assertEqual(summary['stop_reason'], 'early_exit')
+                    self.assertEqual(summary['protocol']['phases'][1]['completed_steps'], 0)
+                self.assertEqual(summary['strategy'], None if outcome == 'llm_only' else
+                                 outcome if outcome in runner.STRATEGIES else 'interleaved')
+                self.assertEqual(summary['phase_counts'], {'llm': 1, 'warmup': 0, 'policy': 0})
+                prompt = next((workspace / 'runs').glob('*/prompt.txt')).read_text()
+                self.assertNotIn('{{', prompt)
+                if outcome != 'llm_only':
+                    self.assertEqual(summary['td3_settings']['seed'], 123456)
+
+    def test_completion_checks_order_plateau_failures_and_no_reward_stop(self):
+        import run_experiment as runner
+        def event(tool, reward=.5, steps=1, success=True):
+            return {'tool': tool, 'ngspice_attempts': 1,
+                    'result': {'success': success, 'reward': reward, 'steps': steps}}
+        plan = runner.make_plan('interleaved', 1, 4, 1)
+        calls = [event('warmup'), event('train', steps=2), event('simulate_design', reward=1.)]
+        self.assertFalse(runner.check_completion(plan, calls)['complete'])
+        self.assertTrue(runner.check_completion(plan, calls + [event('train', steps=2)])['complete'])
+        self.assertFalse(runner.check_completion(plan, calls + [event('train', steps=2, success=False)])['complete'])
+        self.assertFalse(runner.check_completion(plan, list(reversed(calls)))['complete'])
+        first = runner.make_plan('llm_then_td3', 1, 1, 30)
+        llm = [event('simulate_design') for _ in range(9)]
+        self.assertFalse(runner.check_completion(first, llm[:-1] + [event('warmup'), event('train')])['complete'])
+        self.assertTrue(runner.check_completion(first, llm + [event('warmup'), event('train')])['complete'])
+        improving = [event('simulate_design', reward=i) for i in range(30)]
+        self.assertTrue(runner.check_completion(first, improving + [event('warmup'), event('train')])['complete'])
+        self.assertTrue(runner.check_completion([{'tool': 'llm', 'steps': 1}],
+                                               [event('simulate_design', reward=-5.)])['complete'])
+        self.assertEqual(runner.make_plan('interleaved', 1, 4, 0),
+                         [{'tool': 'warmup', 'steps': 1}, {'tool': 'train', 'steps': 4}])
+
+    def test_public_stream_keeps_tool_rejections_without_private_text(self):
+        import run_experiment as runner
+        events = [{'event': 'step_update', 'step_update': {'state': 'ERROR',
+                   'tool_name': 'call_mcp_tool', 'tool_info': {'output': 'Invalid arguments'},
+                   'text_delta': 'private text must not be copied'}},
+                  {'event': 'result', 'result': {'status': 'SUCCESS', 'response': 'Measured ID: mock'}}]
+        result = runner.cli_result('\n'.join(json.dumps(e) for e in events), self.folder)
+        self.assertEqual(result['status'], 'SUCCESS')
+        public = (self.folder / 'public_events.jsonl').read_text()
+        self.assertIn('Invalid arguments', public)
+        self.assertNotIn('private text', public)
+
+    def test_strategy_switch_policy_and_invalid_selection(self):
+        import run_experiment as runner
+        policy = runner.STRATEGIES['llm_then_td3']
+        for requirement in ('eight consecutive', '30 total', 'strictly greater reward',
+                            'min(5, 8-streak, 30-total)', 'no further LLM evaluations',
+                            'never activate TD3 early'):
+            self.assertIn(requirement, policy)
+        with patch.object(sys, 'argv', ['run_experiment.py', '--strategy', 'invalid']), \
+             patch.object(runner.subprocess, 'run') as cli, patch('sys.stderr', io.StringIO()):
+            with self.assertRaises(SystemExit):
+                runner.main()
+            cli.assert_not_called()
+
+    def test_adaptive_optional_training_and_documented_completion(self):
+        import run_experiment as runner
+        plan = runner.make_plan('adaptive', 200, 800, 100)
+        def call(tool, steps=0):
+            return {'tool': tool, 'ngspice_attempts': 1 if tool=='simulate_design' else 220,
+                    'result': {'success': True,'steps': steps,'reward': -.1}}
+        calls = [call('warmup',200)] + [call('simulate_design') for _ in range(9)]
+        state = runner.check_completion(plan,calls)
+        self.assertEqual(state['counts'],{'warmup':200,'llm':9,'train':0})
+        self.assertEqual(state['next_phase']['tool'],'adaptive')  # No forced 8-evaluation switch.
+        self.assertFalse(state['complete'])
+        final = {'response': {'stop_reason':'no_useful_action','stop_explanation':'Measured d1 constraints repeatedly conflict.',
+                             'remaining_methods_assessment':'LLM changes exhausted tested hypotheses; TD3 is judged unhelpful for this documented bottleneck.'}}
+        done = runner.finish_adaptive(state,final,229,1200,self.folder/'missing_public.jsonl')
+        self.assertTrue(done['complete'])  # Training may legitimately stay zero.
+        mixed = calls + [call('train',400),call('simulate_design'),call('train',400)]
+        self.assertFalse(runner.check_completion(plan,mixed)['errors'])
+        over = runner.check_completion(plan,mixed+[call('train',1)])
+        self.assertTrue(over['errors'])
+        over_llm = runner.check_completion(plan,[call('warmup',200)]+[call('simulate_design') for _ in range(101)])
+        self.assertTrue(over_llm['errors'])
+        unfinished = runner.check_completion(plan,[call('warmup',100)])
+        self.assertFalse(runner.finish_adaptive(unfinished,final,110,1200,self.folder/'missing')['complete'])
+
+    def test_adaptive_backend_caps_and_reason_are_metadata_only(self):
+        import run_experiment as runner
+        base=self.initial()
+        state={'errors':[],'next_phase':{'tool':'adaptive','llm_remaining':3,'train_remaining':400}}
+        with patch.object(server,'protocol_state',return_value=state):
+            self.assertTrue(server.protocol_guard('llm',4)['protocol_rejected'])
+            self.assertTrue(server.protocol_guard('train',401)['protocol_rejected'])
+            self.assertTrue(server.protocol_guard('warmup',1)['protocol_rejected'])
+            self.assertTrue(server.protocol_guard('train',100,reason='uncited guess')['protocol_rejected'])
+            self.assertIsNone(server.protocol_guard('train',400,reason=base['design_id']+' has repeated measured constraint violations'))
+        self.assertIsNone(self.session.agent)
+        self.td3_sim.assert_not_called()
+        with patch.object(sys, 'argv', ['run_experiment.py', '--budget', '1', '--td3-config', str(DEFAULT_CONFIG)]), \
+             patch.object(runner.subprocess, 'run') as cli, patch('sys.stderr', io.StringIO()):
+            with self.assertRaises(SystemExit):
+                runner.main()
+            cli.assert_not_called()
+
+    def test_adaptive_warmup_returns_one_measured_base_without_training(self):
+        import run_experiment as runner
+        measured = self.archive.add(PARAMETERS,server.adapter.assess(dict(server.env.dict_targets)),
+            'TD3','mock',{'phase':'warmup','fixture':True})
+        protocol={'plan':runner.make_plan('adaptive',200,800,100)}
+        with patch.object(server,'PROTOCOL',protocol), patch.object(server,'RUN',self.folder), \
+             patch.object(server,'MAX_SIMULATIONS',1200), patch.object(self.session,'run',return_value={
+                 'success':True,'steps':200,'evaluated_design_ids':[measured['design_id']]}):
+            result=server.warmup(200)
+        self.assertTrue(result['success'])
+        self.assertEqual(result['guidance_base']['parameters'],PARAMETERS)
+        self.assertTrue(result['guidance_base']['hard_satisfied'])
+        self.assertEqual(result['guidance_base']['constraint_margins']['gain'],0.)
+        self.assertEqual(result['adaptive_resources']['tool'],'adaptive')
+        self.assertIsNone(self.session.agent)
+        self.td3_sim.assert_not_called()
 
 
 @unittest.skipUnless(os.environ.get('CAD_PERSISTENT_REAL') == '1', 'Opt-in actual ngspice/MCP smoke')

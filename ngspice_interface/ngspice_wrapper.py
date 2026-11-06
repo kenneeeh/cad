@@ -6,6 +6,8 @@ import string
 import time 
 import shutil
 import subprocess
+import json
+import sys
 from pathlib import Path
 
 class NgspiceWrapper(object):
@@ -129,10 +131,30 @@ class NgspiceWrapper(object):
                 executable = (shutil.which('ngspice_con') or shutil.which('ngspice')
                               or str(local_executable))
         # Argument lists handle spaces in paths without shell quoting or Unix redirection.
-        result = subprocess.run(
-            [executable, '-b', os.fspath(netlist_path)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        started = time.perf_counter()
+        result = None
+        self.simulator_attempts = getattr(self, 'simulator_attempts', 0) + 1
+        try:
+            result = subprocess.run(
+                [executable, '-b', os.fspath(netlist_path)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        finally:
+            duration = time.perf_counter() - started
+            self.simulator_execution_s = getattr(self, 'simulator_execution_s', 0.) + duration
+            if getattr(self, 'audit_path', None):
+                event = {'event': 'simulation_attempt', 'simulation_id': Path(netlist_path).stem,
+                         'simulation_index': self.simulator_attempts + getattr(self, 'audit_offset', 0),
+                         'initiator': getattr(self, 'audit_phase', 'unknown'),
+                         'simulator_execution_s': duration,
+                         'elapsed_s': time.perf_counter() - float(os.environ.get('CAD_EXPERIMENT_START', getattr(self, 'audit_start', started))),
+                         'returncode': result.returncode if result is not None else None}
+                try:
+                    Path(self.audit_path).parent.mkdir(parents=True, exist_ok=True)
+                    with open(self.audit_path, 'a', encoding='utf-8') as output:
+                        output.write(json.dumps(event, allow_nan=False) + '\n')
+                except OSError as error:
+                    print(f'Simulator audit failed: {error}', file=sys.stderr)
         return 0 if result.returncode == 0 else 1
     
 

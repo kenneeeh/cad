@@ -2,11 +2,34 @@
 import math
 from pathlib import Path
 import re
+import json
+import os
+from time import perf_counter
 from .circuit_adapter import CircuitAdapter
-from .candidates import CandidateArchive
+from .candidates import CandidateArchive, EXPERIMENT_START
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
+
+
+def record_reset_evaluation(env):
+    """Audit measured resets without adding replay entries or archive selection candidates."""
+    path = getattr(env.simulation_engine, 'audit_path', None)
+    if not path:
+        return
+    try:
+        assessment = CircuitAdapter(env, REPO).assess(env.real_specs)
+        simulation_id = env.simulation_engine.random_name
+        record = {'event': 'reset_measurement', 'design_id': 'reset_' + simulation_id,
+                  'simulation_id': simulation_id, 'source': 'TD3', 'origin': 'TD3_reset',
+                  'phase': getattr(env.simulation_engine, 'audit_phase', 'unknown'),
+                  'parameters': dict(env.param_values), **assessment,
+                  'simulation_index': env.counter + getattr(env, '_llm_simulation_attempts', 0),
+                  'elapsed_s': perf_counter()-float(os.environ.get('CAD_EXPERIMENT_START', EXPERIMENT_START))}
+        with Path(path).open('a', encoding='utf-8') as output:
+            output.write(json.dumps(record, allow_nan=False)+'\n')
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        print(f'Reset measurement audit failed: {error}')
 
 
 def export_td3_candidate(env, reward, info, path=None, phase='policy'):
@@ -24,6 +47,7 @@ def export_td3_candidate(env, reward, info, path=None, phase='policy'):
     output = Path(path) if path is not None else HERE / 'runs' / ('td3_' + run_name) / 'candidates.jsonl'
     CandidateArchive(output, adapter.context()['problem_id']).add(env.param_values, assessment, 'TD3', env.run_id,
         {'completed': True, 'simulator': 'ngspice', 'simulation_id': simulation_id,
-         'simulation_count': env.counter, 'phase': phase})
+         'simulation_count': env.counter, 'phase': phase,
+         'cumulative_simulation_count': env.counter + getattr(env, '_llm_simulation_attempts', 0)})
     return output
 

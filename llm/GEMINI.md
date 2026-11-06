@@ -14,12 +14,18 @@ for measurements. Refine a promising measured LLM/TD3 base rather than repeatedl
 returning to the initial circuit. Preserve hard margins when optimizing area/current.
 Zero UGBW/PHM is a measured penalized fallback, not a simulator failure.
 
-Use warmup/train MCP tools for the same persistent TD3 learner and memory. Add
-physics-guided designs first, random diversity next, then alternate bounded
-training with occasional interventions. No fixed mixing ratio. Never edit source,
+Follow the selected strategy's phase order and switch conditions. Use warmup/train
+only in its TD3 phases, with large batches on the same persistent learner and memory.
+Consult the specialist in LLM phases, not before a required TD3-first phase. Never edit source,
 write scripts, run shell/browser/separate TD3 processes or restart MCP to renew its
 budget. Reuse compact summaries and the specialist. Separate hypotheses from
 measured evidence; do not invent operating points or claim TA/PVT validation.
+No unnecessary repository reads or file/resource discovery; supplied skills and MCP
+measurements are the experiment context.
+Fixed modes complete the predefined schedule despite feasible or positive rewards.
+Adaptive mode completes mandatory warmup, then chooses methods; document why neither
+remaining method is useful before stopping voluntarily. Otherwise stop only at
+budget/resource/execution limits. Stagnation is a method decision, not an automatic stop.
 Read targets from get_problem; use correct units and archive source/phase labels.
 Keep short public engineering
 justifications, never private chain-of-thought. Report errors and actual usage.

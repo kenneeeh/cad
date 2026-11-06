@@ -1,7 +1,11 @@
 """Small JSONL history of measured TwoStage designs."""
 import json
+import os
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
+
+EXPERIMENT_START = perf_counter()  # Standalone TD3: includes setup after this import.
 
 
 def apply_changes(parameters, changes):
@@ -38,6 +42,11 @@ class CandidateArchive:
 
     def add(self, parameters, assessment, source, run_id, metadata, parent_id=None, hypothesis='', design_id=None):
         # Callers validate measured data before storing it. Imports retain their original ID.
+        metadata = dict(metadata)
+        metadata.setdefault('elapsed_s', perf_counter() - float(os.environ.get('CAD_EXPERIMENT_START', EXPERIMENT_START)))
+        metadata.setdefault('cumulative_simulation_count', metadata.get('simulation_count'))
+        metadata.setdefault('origin', 'LLM' if source == 'LLM' else
+                            'random_warmup' if metadata.get('phase') == 'warmup' else 'TD3')
         record = {'design_id': design_id or 'design_' + uuid4().hex, 'problem_id': self.problem_id,
                   'source': source, 'run_id': str(run_id), 'parameters': dict(parameters),
                   **assessment, 'metadata': metadata, 'parent_id': parent_id, 'hypothesis': hypothesis}

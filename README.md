@@ -11,3 +11,5 @@ This repository is a snapshot of the working project, including local changes, t
 Create and activate a Python environment, install the requirements, and install ngspice for your operating system. Activate the environment before launching the LLM harness so its `python` MCP command uses that interpreter. Existing setup reports may contain paths specific to the original machine.
 
 Credentials, virtual environments, tool executables, compiled SAC baseline binaries, generated experiment directories and test artifacts are excluded. The optional SAC baseline requires separately supplied binaries.
+
+Course materials are included in [course/](course/): project instructions, introductory slides, session slides, and the course references CSV.
