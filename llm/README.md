@@ -110,7 +110,7 @@ parents; `session_*/calls.jsonl` retains ordered evaluations and training batche
 Together with the final response's switch counts/ID, these reconstruct phase
 progress without a second logging system. Each command defaults to a fresh archive.
 
-The launcher reuses the current model/sign-in and writes candidates.jsonl,
+The launcher uses `--model` (default `gemini-3.8-flash-low`) and the existing sign-in, and writes candidates.jsonl,
 session calls.jsonl and one summary.json under ignored llm/runs/. Use --archive
 PATH to choose the archive and --td3-config PATH to choose an existing saved
 params.json. Default settings come unchanged from the teammate's committed
@@ -283,3 +283,78 @@ replay_injection.py is the unchanged tested insertion; candidates.py and
 circuit_adapter.py retain history and validation; td3_candidates.py retains the
 existing exporter; run_experiment.py launches the native coordinator and summarizes
 results. .agents/ contains two roles, two skills and existing MCP registration.
+
+## LLM-led hybrid mode and offline verification
+
+`llm_led` was ported from `feat/llm-led-hybrid`; it reuses the same persistent TD3
+session and replay insertion as the existing modes. The LLM chooses when to use
+TD3. Warmup, training and LLM counts are ceilings, not mandatory phases or quotas.
+The shared process-attempt budget still includes resets and failures, and a full
+TD3 batch must fit before it starts. There is at most one warmup call of up to 30
+steps and train calls of up to 40 steps, each citing measured candidate IDs.
+No separate Python agent scheduler is introduced.
+
+The stopping rule is a measured feasible best followed by at least eight candidate
+evaluations without a strictly better feasible FoM; finish a started probe batch.
+Infeasible rewards cannot improve that best. Reset measurements consume simulator
+budget but do not advance this candidate-stagnation streak. Feasibility alone does
+not justify stopping, and validated stagnation does not require exhausting 300
+attempts. Live progress is not labeled complete merely because it is within ceilings.
+Final `optimization_status` distinguishes `completed_optimization`,
+`voluntary_early_stop` (not validated), `resource_exhaustion` and `execution_failure`.
+The older fixed and adaptive strategy rules are unchanged.
+
+New summaries retain the legacy `best` field (highest reward regardless of
+feasibility) and explicitly add `best_measured_reward`, `best_feasible_fom`,
+`best_feasible_candidate_id/source/phase`, `first_feasible_simulation`,
+`actual_ngspice_attempts`, `successful_td3_training_updates`, `td3_training_used`
+and `hybrid_training_executed`. The last field records executed work, not evidence
+of a causal learning/performance advantage. Selection fields cover this run's new
+archive candidates, excluding imported history and reset-only measurements.
+
+Per-run deliverables are `max_reward.png` (accurately labeled unconstrained reward),
+`best_feasible_fom.png`, `pareto.png`, `measurement_summary.json` and `Solutions/`.
+Both reward plots use actual cumulative process indices; the feasible curve is
+undefined before feasibility and labels new-best sources as LLM, TD3 warmup or TD3
+policy. Missing process indices/timing are reported rather than reconstructed from
+archive row numbers. Historical setup IDs are retained when reading saved logs.
+
+The published `results/llm_led_seed123456/` is immutable reference evidence.
+Regenerate outputs elsewhere, **without a model or simulator call**:
+
+```bash
+python -B llm/deliverables.py results/llm_led_seed123456 --output-dir llm/reports/llm_led_validation
+```
+
+This also writes `verification.json`, comparing reconstructed measurements/counts
+against the original summary and recording the reviewed stopping classification.
+It does not rewrite the published summary, plots, candidate ancestry or netlists.
+An offline reconstruction report is in [reports/LLM_LED_INTEGRATION.md](reports/LLM_LED_INTEGRATION.md).
+
+The following are reproduction commands for **future, separately authorized model
+experiments**; they were not executed during integration. Set `CAD_AGY` or put `agy`
+on PATH, and ensure the existing Antigravity MCP registration points to this checkout.
+The CLI interpreter's folder is prepended to the subprocess PATH. Specify the model
+explicitly to reproduce the published Gemini High selection while retaining main's
+original Gemini Low default for existing users:
+
+```bash
+python -B llm/run_experiment.py --model gemini-3.8-flash-high --strategy llm_led --budget 300 --warmup-steps 30 --train-steps 120 --llm-evaluations 130
+python -B llm/run_experiment.py --model gemini-3.8-flash-high --strategy llm_led --budget 300 --warmup-steps 30 --train-steps 120 --llm-evaluations 130 --td3-config llm/configs/td3_seed1.json
+python -B llm/run_experiment.py --model gemini-3.8-flash-high --strategy llm_led --budget 300 --warmup-steps 30 --train-steps 120 --llm-evaluations 130 --td3-config llm/configs/td3_seed2.json
+```
+
+The first command uses the unchanged saved seed 123456 configuration. The two
+ported JSON files change only that seed to 1/2, not the learning settings. Counts
+remain optional ceilings even when they do not all fit the shared total budget.
+Repeated model calls need not reproduce the exact trajectory. For a controlled
+comparison, match actual simulator budgets, seeds, settings and initial information
+against independent LLM-only and TD3-only baselines. The standalone runner retains
+its original episode-ending behavior; a nominal `T` flag is not a strict shared
+simulator cap or a matched-baseline guarantee.
+
+Relevant validation (mocked simulators plus saved-log analysis):
+
+```bash
+python -B -m unittest codex_tests.test_llm_led codex_tests.test_persistent_session codex_tests.test_replay_injection codex_tests.test_mcp_server codex_tests.test_multi_agent codex_tests.test_efficiency -v
+```

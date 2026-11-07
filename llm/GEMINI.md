@@ -22,7 +22,10 @@ budget. Reuse compact summaries and the specialist. Separate hypotheses from
 measured evidence; do not invent operating points or claim TA/PVT validation.
 No unnecessary repository reads or file/resource discovery; supplied skills and MCP
 measurements are the experiment context.
-Fixed modes complete the predefined schedule despite feasible or positive rewards.
+llm_led uses method ceilings and may stop after a feasible best and eight further
+non-improving candidate evaluations (finish the batch), or resource/error limits.
+Reset measurements are charged but excluded from the candidate-stagnation streak.
+Other fixed modes complete the predefined schedule despite feasible or positive rewards.
 Adaptive mode completes mandatory warmup, then chooses methods; document why neither
 remaining method is useful before stopping voluntarily. Otherwise stop only at
 budget/resource/execution limits. Stagnation is a method decision, not an automatic stop.

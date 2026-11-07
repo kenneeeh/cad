@@ -55,7 +55,17 @@ Default local refinement: retrieve the measured base and full parameters; consul
 the specialist ONCE with base ID, sizes, measured specs, targets, relevant grids,
 margins and tested changes; obtain its reply; batch independent controlled probes;
 inspect results; then make another batch or targeted refinement only if justified.
-For fixed experiments, complete the predefined schedule regardless of feasibility,
+For llm_led, warmup, training and LLM counts are optional resource ceilings. Choose
+methods from measured evidence; use at most one <=30-step warmup and <=40-step train
+batches. Stop after a feasible best exists and at least eight subsequent candidate
+evaluations do not improve the best feasible FoM, finishing a started probe batch.
+Infeasible rewards never improve that best. Reset measurements consume budget but
+do not advance this candidate-stagnation streak. Also stop for simulation/resource
+exhaustion or execution failure; label unvalidated voluntary early stopping honestly.
+Feasibility alone is insufficient, but validated stagnation need not exhaust budget.
+Report actual TD3 updates; a run without updates does not demonstrate hybrid learning.
+
+For other fixed experiments, complete the predefined schedule regardless of feasibility,
 positive reward or lack of improvement. Stop only at protocol completion, budget
 exhaustion or execution error; the 8/30 trigger switches phases, not the run.
 Adaptive mode instead completes the mandatory warmup, then chooses methods within
