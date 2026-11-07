@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import sys
@@ -13,12 +14,21 @@ from time import perf_counter
 import yaml
 from candidates import CandidateArchive
 from circuit_adapter import setup_id
+from deliverables import write_deliverables
 from efficiency import summarize_efficiency
 
 HERE = Path(__file__).resolve().parent
-MODEL = 'gemini-3.8-flash-low'
-AGY = HERE.parent.parent / '.tools/antigravity/agy.exe'
+MODEL = 'gemini-3.8-flash-high'
+AGY = os.environ.get('CAD_AGY') or shutil.which('agy') or str(HERE.parent.parent / '.tools/antigravity/agy.exe')
 STRATEGIES = {
+    'llm_led': (
+        'The LLM leads and TD3 is a scarce tool. Start from the best measured design (or the supplied '
+        'initial design if none exists) and refine it with specialist-guided probes. Call TD3 only when '
+        'LLM refinement is stuck (about four consecutive non-improving evaluations or a conflicting '
+        'constraint you cannot resolve): at most one short warmup(n_steps<=30) the first time, then '
+        'train(n_steps=20..40, reason=...) batches. After each batch, return to LLM refinement of the best '
+        'measured design from either source. Use few simulations: stop as soon as a feasible design '
+        'is found and eight further consecutive evaluations do not improve its reward, or at the budget.'),
     'adaptive': (
         'Experiment B: first complete exactly 200 random warmup transitions, with no learning. '
         'Then independently choose LLM probes or optional TD3 training from measured history. '
@@ -61,6 +71,8 @@ def make_plan(strategy, warmup, training, llm):
     warm = [{'tool': 'warmup', 'steps': warmup}] if warmup else []
     learn = [{'tool': 'train', 'steps': training}] if training else []
     guided = [{'tool': 'llm', 'steps': llm}] if llm else []
+    if strategy == 'llm_led':
+        return warm + [{'tool': 'llm_led', 'llm_limit': llm, 'train_limit': training}]
     if strategy == 'adaptive':
         return warm + [{'tool': 'adaptive', 'llm_limit': llm, 'train_limit': training,
                         'specialist_limit': 2, 'coordinator_response_limit': 30}]
@@ -82,6 +94,8 @@ def check_completion(plan, calls):
     """Check measured tool progress/order, independently of CLI status or reward sign."""
     if any(p['tool'] == 'adaptive' for p in plan):
         return adaptive_progress(plan, calls)
+    if any(p['tool'] == 'llm_led' for p in plan):
+        return llm_led_progress(plan, calls)
     completed = [0 for _ in plan]
     phase, streak, best = 0, 0, float('-inf')
     errors = []
@@ -114,6 +128,32 @@ def check_completion(plan, calls):
             'next_phase': {**plan[phase], 'remaining_steps': plan[phase]['steps']-completed[phase]} if phase < len(plan) else None,
             'phases': [{**p, 'completed_steps': n, 'complete': index < phase}
                        for index, (p, n) in enumerate(zip(plan, completed))],
+            'errors': errors}
+
+
+def llm_led_progress(plan, calls):
+    """Resource ceilings only: the LLM decides when to call TD3 and when to stop."""
+    warmup = next((p['steps'] for p in plan if p['tool'] == 'warmup'), 0)
+    limits = plan[-1]
+    counts = {'warmup': 0, 'llm': 0, 'train': 0}
+    errors = []
+    for call in calls:
+        kind = 'llm' if call['tool'] in ('simulate_design', 'evaluate_candidate') else call['tool']
+        if kind not in counts:
+            continue
+        result = call['result']
+        if not result.get('success') and not result.get('protocol_rejected') and (
+                call.get('ngspice_attempts', 0) or kind in ('warmup', 'train')):
+            errors.append(result.get('error', 'Evaluation failed'))
+        counts[kind] += call.get('ngspice_attempts', 0) if kind == 'llm' else result.get('steps', 0)
+    if counts['warmup'] > warmup or counts['llm'] > limits['llm_limit'] or counts['train'] > limits['train_limit']:
+        errors.append('Resource ceiling exceeded')
+    return {'complete': not errors,
+            'next_phase': {**limits, 'warmup_remaining': warmup-counts['warmup'],
+                           'llm_remaining': limits['llm_limit']-counts['llm'],
+                           'train_remaining': limits['train_limit']-counts['train']},
+            'counts': counts, 'phases': [{**limits, 'completed_llm': counts['llm'],
+                                          'completed_train': counts['train'], 'complete': not errors}],
             'errors': errors}
 
 
@@ -241,6 +281,7 @@ def main():
     parser.add_argument('--train-steps', type=int, help='fixed policy steps; default saved T-w')
     parser.add_argument('--llm-evaluations', type=int, default=6,
                         help='fixed intervention/refinement attempts; 0 permits a TD3-only baseline; LLM-first uses 8/30')
+    parser.add_argument('--no-plots', action='store_true', help='skip FoM/Pareto plots and Solutions folder')
     args = parser.parse_args()
     problem_id = setup_id(HERE.parent)
     if args.budget < 1:
@@ -323,6 +364,15 @@ def main():
             'are a suggestion, not a forced switch. Record actual method switches and candidate decisions in the structured '
             'final response. Explain remaining methods for every stop, including unused TD3 capacity. '
             'Current constraints remain gain>=200, noise<=0.03 V RMS, PM>=60 deg, rising slew>=30 V/us, UGBW>=100 MHz.')
+    if args.strategy == 'llm_led':
+        workflow = (STRATEGIES['llm_led'] + ' Resource ceilings: ' + json.dumps(plan) +
+            '. warmup/train steps and LLM evaluations beyond these ceilings are rejected. '
+            'Never stop while no feasible design exists and budget remains. '
+            'Consult the specialist before the first refinement batch and after each TD3 batch. '
+            'For each train call, reason must cite actual candidate IDs and recent measurements. '
+            'Prefix hypotheses with exploration, intervention or final_refinement. '
+            'Constraints stay gain>=200, noise<=0.03 V RMS, PM>=60 deg, rising slew>=30 V/us, UGBW>=100 MHz. '
+            'Finish with the best measured ID, simulations used per method, each TD3 call and why it was made.')
     prompt = ((HERE / 'experiment.md').read_text().replace('{{budget}}', str(args.budget))
               .replace('{{start}}', start).replace('{{mode}}', mode).replace('{{workflow}}', workflow))
     (run / 'prompt.txt').write_text(prompt, encoding='utf-8')
@@ -356,7 +406,8 @@ def main():
                '--model', MODEL, '--output-format', 'stream-json', '--print-timeout', '15m', '-p', prompt]
     if args.strategy == 'adaptive':
         command[command.index('-p'):command.index('-p')] = ['--json-schema', json.dumps(ADAPTIVE_SCHEMA)]
-    environment = {**os.environ, 'CAD_MAX_SIMULATIONS': str(args.budget), 'CAD_RUN_ID': run.name,
+    environment = {**os.environ, 'PATH': str(Path(sys.executable).parent) + os.pathsep + os.environ['PATH'],
+                   'CAD_MAX_SIMULATIONS': str(args.budget), 'CAD_RUN_ID': run.name,
                    'CAD_RUNS_DIR': str(run), 'CAD_ARCHIVE_PATH': str(archive.path), 'PYTHONDONTWRITEBYTECODE': '1',
                    'CAD_HYBRID': '0' if args.llm_only else '1', 'CAD_TD3_CONFIG': str(run / 'td3_config.json')}
     environment['CAD_PROTOCOL_PATH'] = str(run / 'manifest.json')
@@ -427,6 +478,8 @@ def main():
         elif not protocol['complete']:
             summary['error'] = 'Incomplete protocol: CLI status does not establish schedule completion'
     (run / 'summary.json').write_text(json.dumps(summary, indent=2, allow_nan=False), encoding='utf-8')
+    if not args.no_plots:
+        write_deliverables(archive.path, run, run.name, previous_ids)
     print(json.dumps(summary, indent=2), flush=True)
     return 0 if success else 1
 

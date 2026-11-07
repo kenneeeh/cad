@@ -83,6 +83,11 @@ def protocol_guard(kind, count, parameters=None, reason=''):
         error = 'Protocol has an execution error; stop and report partial completion'
     elif phase is None:
         error = 'Protocol complete; stop without further evaluations'
+    elif phase['tool'] == 'llm_led':
+        remaining = {'llm': phase['llm_remaining'], 'train': phase['train_remaining'],
+                     'warmup': phase['warmup_remaining']}.get(kind, 0)
+        if count > remaining:
+            error = 'Resource ceiling for this tool exceeded; use a remaining method'
     elif phase['tool'] == 'adaptive':
         remaining = phase['llm_remaining'] if kind == 'llm' else phase['train_remaining'] if kind == 'train' else 0
         if count > remaining or kind not in ('llm','train'):
@@ -119,7 +124,7 @@ def audited(function):
                   'simulator_execution_s': simulator_time() - before_simulator,
                   'elapsed_s': perf_counter() - float(os.environ.get('CAD_EXPERIMENT_START', EXPERIMENT_START)),
                   'result': result}
-        if PROTOCOL and any(p['tool']=='adaptive' for p in PROTOCOL['plan']):
+        if PROTOCOL and any(p['tool'] in ('adaptive', 'llm_led') for p in PROTOCOL['plan']):
             result['adaptive_resources'] = protocol_state(record)['next_phase']
         with (RUN / 'calls.jsonl').open('a', encoding='utf-8') as output:
             output.write(json.dumps(record, allow_nan=False) + '\n')

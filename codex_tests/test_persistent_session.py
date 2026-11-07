@@ -218,10 +218,24 @@ class TestPersistentSession(unittest.TestCase):
         self.assertEqual(buffer.size, 4)
         self.assertEqual(env.counter, 6)
 
+    def test_llm_led_plan_enforces_only_resource_ceilings(self):
+        import run_experiment as runner
+        plan = runner.make_plan('llm_led', 30, 120, 130)
+        self.assertEqual(plan[-1], {'tool': 'llm_led', 'llm_limit': 130, 'train_limit': 120})
+        calls = [{'tool': 'warmup', 'ngspice_attempts': 33, 'result': {'success': True, 'steps': 30}},
+                 {'tool': 'evaluate_candidate', 'ngspice_attempts': 1, 'result': {'success': True}},
+                 {'tool': 'train', 'ngspice_attempts': 42, 'result': {'success': True, 'steps': 40}}]
+        progress = runner.check_completion(plan, calls)
+        self.assertEqual(progress['counts'], {'warmup': 30, 'llm': 1, 'train': 40})
+        self.assertEqual(progress['next_phase']['train_remaining'], 80)
+        self.assertTrue(progress['complete'])
+        calls.append({'tool': 'train', 'ngspice_attempts': 90, 'result': {'success': True, 'steps': 90}})
+        self.assertFalse(runner.check_completion(plan, calls)['complete'])
+
     def test_launcher_preserves_measurements_and_reports_cli_failures(self):
         import run_experiment as runner
         for outcome in ('SUCCESS', 'early', 'ERROR', 'nonzero', 'timeout', 'json', 'llm_only',
-                        *(s for s in runner.STRATEGIES if s != 'adaptive')):
+                        *(s for s in runner.STRATEGIES if s not in ('adaptive', 'llm_led'))):
             with self.subTest(outcome=outcome):
                 workspace = self.folder / outcome / 'llm'
                 workspace.mkdir(parents=True)
@@ -259,7 +273,7 @@ class TestPersistentSession(unittest.TestCase):
                         stdout='bad JSON' if outcome == 'json' else json.dumps({'status': status, 'usage': {'input_tokens': 5}}),
                         stderr='CLI failure')
                 argv = ['run_experiment.py', '--budget', '40', '--warmup-steps', '1',
-                        '--train-steps', '2', '--llm-evaluations', '1', '--td3-config', str(DEFAULT_CONFIG)]
+                        '--train-steps', '2', '--llm-evaluations', '1', '--no-plots', '--td3-config', str(DEFAULT_CONFIG)]
                 if outcome == 'llm_only':
                     argv += ['--llm-only']
                 elif outcome in runner.STRATEGIES:
