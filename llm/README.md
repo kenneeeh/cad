@@ -283,3 +283,21 @@ replay_injection.py is the unchanged tested insertion; candidates.py and
 circuit_adapter.py retain history and validation; td3_candidates.py retains the
 existing exporter; run_experiment.py launches the native coordinator and summarizes
 results. .agents/ contains two roles, two skills and existing MCP registration.
+
+## Reproducing the llm_led comparison
+
+`llm_led` lets the LLM drive the search and calls TD3 only in short batches (ceilings:
+30 warmup steps, 120 train steps, 130 LLM evaluations, 300 simulations in total). Seeds 1 and 2
+use `llm/configs/td3_seed{1,2}.json`; seed 123456 uses the default `params.json`. Each run writes
+`max_reward.png`, `pareto.png` and a `Solutions/` folder (`llm/deliverables.py`).
+It needs `agy` on the `PATH` (or `CAD_AGY`) and calls the model:
+
+```bash
+python -B llm/run_experiment.py --strategy llm_led --budget 300 --warmup-steps 30 --train-steps 120 --llm-evaluations 130 --td3-config llm/configs/td3_seed1.json
+```
+
+TD3-only baseline for the same budget (no model; 270 steps plus resets), one per seed:
+
+```bash
+python -B td3_runner.py --noise_sigma 0.03 --batch_size 64 --w 100 --T 270 --pi_lr 0.0005 --q_lr 0.001 --seed 1 --run_id baseline_td3_seed1
+```
