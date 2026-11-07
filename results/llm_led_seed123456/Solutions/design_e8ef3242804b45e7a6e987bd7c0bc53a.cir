@@ -1,0 +1,75 @@
+TwoStage_opamp_netlist
+
+.include "ngspice_interface/files/spice_models/p045_TT.sp"
+
+.param wp1=1.75e-06 lp1=1.35e-07 mp1=16.0
+.param wn1=1.75e-06 ln1=1.35e-07 mn1=21.0
+.param wn3=1.4999999999999998e-06 ln3=1.35e-07 mn3=10.0
+.param wp3=2.25e-06 lp3=9e-08 mp3=21.0
+.param wn4=3e-06 ln4=9e-08 mn4=7.0
+.param wn5=5e-07 ln5=4.5e-08 mn5=19.0
+.param cap=7e-13
+.param res=5000.0
+
+.param ibias=30u
+.param cload=10p
+.param vcm=0.6
+
+.param VDD=1.2
+.param temp_pvt=27
+.param trf=0.5u
+.param period=10u
+.param vhigh=VDD
+ 
+mp1 net4 net4 VDD VDD pmos w=wp1 l=lp1 m=mp1
+mp2 net5 net4 VDD VDD pmos w=wp1 l=lp1 m=mp1
+mn1 net4 net2 net3 net3 nmos w=wn1 l=ln1 m=mn1
+mn2 net5 net1 net3 net3 nmos w=wn1 l=ln1 m=mn1
+mn3 net7 net7 VSS VSS nmos w=wn3 l=ln3 m=mn3
+mn4 net3 net7 VSS VSS nmos w=wn4 l=ln4 m=mn4
+mp3 net6 net5 VDD VDD pmos w=wp3 l=lp3 m=mp3
+mn5 net6 net7 VSS VSS nmos w=wn5 l=ln5 m=mn5
+cc net5 net8 {cap}
+rc net8 net6 {res}
+
+ibias VDD net7 ibias
+
+Vicm VCM VSS dc=vcm
+Vinput aid VSS dc=0.0 ac=1.0 PULSE({-VHIGH/2} {VHIGH/2} {trf} {trf} {trf} {0.5*period-trf} {period})
+ein1 net1 VCM aid 0 0.5
+ein2 net2 VCM aid 0 -0.5
+
+vdd VDD 0 dc=VDD
+vss VSS 0 dc=0
+CL net6 0 {cload}
+
+* set temperature
+.temp {temp_pvt}
+
+.control
+run
+set units=degrees
+set wr_vecnames
+option numdgt=7
+
+* transient analysis
+tran 5n 11u
+wrdata <repo>/llm/runs/hybrid_dgnup07j/session_svlbcqgw/outputs/tran_TwoStage_1794050559_yzvzomcdmt.csv v(net6)
+* save Vout data in a file named 'tran_TwoStage.csv'
+* --- ??? ---
+
+* ac analysis
+ac dec 10 1 1T
+wrdata <repo>/llm/runs/hybrid_dgnup07j/session_svlbcqgw/outputs/ac_TwoStage_1794050559_yzvzomcdmt.csv v(net6)
+
+* noise analysis
+noise v(net6) vinput dec 10 1 1T
+wrdata <repo>/llm/runs/hybrid_dgnup07j/session_svlbcqgw/outputs/noise_TwoStage_1794050559_yzvzomcdmt.csv onoise_total
+
+* dc analysis
+op
+wrdata <repo>/llm/runs/hybrid_dgnup07j/session_svlbcqgw/outputs/dc_TwoStage_1794050559_yzvzomcdmt.csv i(vdd)
+
+.endc
+
+.end

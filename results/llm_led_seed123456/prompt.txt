@@ -1,0 +1,42 @@
+Run a two-agent hybrid sizing experiment with at most 300 actual ngspice
+attempts, including TD3 resets and failures.
+
+Read get_problem once; the selected workflow below takes precedence over generic
+phase suggestions. Retrieve candidates only when selecting a measured refinement
+base. Starting suggestion for an LLM phase only, when no useful current-setup
+measured base exists or the explicit protocol requires it: First simulate these unchanged physical parameters once: {"mp1":8.0,"wp1":1.5e-06,"lp1":1.35e-07,"mn1":15.0,"wn1":1.75e-06,"ln1":1.35e-07,"mp3":18.0,"wp3":2e-06,"lp3":1.35e-07,"mn3":15.0,"wn3":1.25e-06,"ln3":9e-08,"mn4":13.0,"wn4":1.5e-06,"ln4":9e-08,"mn5":17.0,"wn5":5e-07,"ln5":4.5e-08,"cap":3.5e-12,"res":6000.0}
+
+Prefer a promising measured base from either LLM or TD3; consider feasibility,
+violations and margins, not reward alone. Consult circuit-sizing-specialist
+once for local refinement, supplying the full measured base, targets, relevant
+grids, margins and recent outcomes. Retrieve sizes with
+get_candidates(design_id="ID", include_parameters=True); no format argument.
+
+The LLM leads and TD3 is a scarce tool. Start from the best measured design (or the supplied initial design if none exists) and refine it with specialist-guided probes. Call TD3 only when LLM refinement is stuck (about four consecutive non-improving evaluations or a conflicting constraint you cannot resolve): at most one short warmup(n_steps<=30) the first time, then train(n_steps=20..40, reason=...) batches. After each batch, return to LLM refinement of the best measured design from either source. Use few simulations: stop as soon as a feasible design is found and eight further consecutive evaluations do not improve its reward, or at the budget. Resource ceilings: [{"tool": "warmup", "steps": 30}, {"tool": "llm_led", "llm_limit": 130, "train_limit": 120}]. warmup/train steps and LLM evaluations beyond these ceilings are rejected. Never stop while no feasible design exists and budget remains. Consult the specialist before the first refinement batch and after each TD3 batch. For each train call, reason must cite actual candidate IDs and recent measurements. Prefix hypotheses with exploration, intervention or final_refinement. Constraints stay gain>=200, noise<=0.03 V RMS, PM>=60 deg, rising slew>=30 V/us, UGBW>=100 MHz. Finish with the best measured ID, simulations used per method, each TD3 call and why it was made.
+
+Follow the verified topology and controlled-change skills: one small grid-aligned
+parameter change and one short hypothesis/trade-off by default. Explain coupling
+or an unavoidable larger test. Use independent one-parameter probe_parameters
+changes to the SAME base for uncertainty; evaluate_candidate is enough for a clear
+single modification. Inspect results before dependent follow-ups and avoid repeats.
+Use probe_parameters(base_design_id="ID", changes_list=[{"parameter": absolute_value}])
+for 1..5 independent same-base probes, never parameter_variations. Use
+evaluate_candidate(base_design_id="ID", changes={"parameter": absolute_value})
+for a targeted refinement. Changes must be nonempty, grid-valid and different
+from the base; omit duplicate tests. Inspect results before choosing dependent values.
+Fixed modes complete the predefined schedule. Adaptive mode completes mandatory
+warmup, then independently chooses methods within its ceilings; voluntary stopping
+requires a documented assessment that neither remaining method is useful.
+Feasibility/positive reward never justify stopping. Budget/resource/error limits
+also permit stopping. The fixed LLM-first plateau rule switches phases; adaptive
+stagnation only suggests reconsidering the method. Avoid
+intermediate essays, repeated consultations and status/resource polling; reuse
+returned data. For TD3 calls use warmup(n_steps=N) and train(n_steps=N).
+
+Preserve hard margins when improving feasible designs' area/current; otherwise
+prioritize the limiting constraint. Keep current/best IDs, actual units and origin,
+failed hypotheses and remaining budget including resets. No invented measurements
+or precise predictions; no repository reads, scripts or MCP restarts. Finish with the best
+measured ID, reward, feasibility and a brief evidence-based explanation.
+Tie each short keep/reject/follow-up decision to its measured candidate ID in the
+next hypothesis or final response. Preserve actual advice; never manufacture it.
