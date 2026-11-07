@@ -1,0 +1,504 @@
+--- before/llm/candidates.py
++++ after/llm/candidates.py
+@@ -40,6 +40,16 @@
+                 return record  # JSON loading already gives the caller a fresh dictionary.
+         raise ValueError('Unknown design ID in the current setup')
+
++    def find_measured(self, parameter_key, measurement_setup):
++        """Reuse only completed, non-fixture measurements with matching provenance."""
++        for record in self.records():
++            metadata = record['metadata']
++            if (metadata.get('completed') and not metadata.get('fixture')
++                    and metadata.get('measurement_setup') == measurement_setup
++                    and metadata.get('parameter_key') == parameter_key):
++                return record
++        return None
++
+     def add(self, parameters, assessment, source, run_id, metadata, parent_id=None, hypothesis='', design_id=None):
+         # Callers validate measured data before storing it. Imports retain their original ID.
+         metadata = dict(metadata)
+--- before/llm/circuit_adapter.py
++++ after/llm/circuit_adapter.py
+@@ -1,6 +1,8 @@
+ """TwoStage-specific metadata/validation around the existing CircuitEnv; no new simulator."""
+ import hashlib
++import json
+ import math
++import os
+ from pathlib import Path
+
+
+@@ -20,6 +22,22 @@
+                                       'F' if name == 'cap' else 'ohm' if name == 'res' else '1')
+                                 for name in env.dict_params}
+         self.directions = {name: '<=' if name == 'noise' else '>=' for name in env.hard_constraints}
++        files = [self.repo / 'circuit_env.py'] + sorted((self.repo / 'ngspice_interface').rglob('*.py'))
++        files += sorted(p for p in (self.repo / 'ngspice_interface/files').rglob('*')
++                        if p.is_file() and p.suffix in ('.yaml', '.cir', '.sp'))
++        self.measurement_source = hashlib.sha256(b''.join(
++            str(p.relative_to(self.repo)).encode() + p.read_bytes() for p in files)).hexdigest()
++
++    def measurement_setup(self):
++        """Scope reuse to the loaded simulator sources, grids, targets and PVT."""
++        configuration = [self.measurement_source, self.env.pvt_corner, self.env.dict_params,
++                         self.env.dict_targets, os.environ.get('NGSPICE_EXECUTABLE', 'default')]
++        return hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest()
++
++    def parameter_key(self, parameters):
++        self.validate_parameters(parameters)
++        return [round((parameters[name] - low) / step)
++                for name, (low, high, step) in sorted(self.env.dict_params.items())]
+
+     def validate_parameters(self, parameters):
+         expected = set(self.env.dict_params)
+--- before/llm/mcp_server.py
++++ after/llm/mcp_server.py
+@@ -129,15 +129,23 @@
+
+ def _evaluate(parameters, hypothesis, parent_id=None):
+     with lock:
++        try:
++            if not isinstance(hypothesis, str) or len(hypothesis) > 300:
++                raise ValueError('hypothesis must be a string of at most 300 characters')
++            parameter_key = adapter.parameter_key(parameters)
++        except (ValueError, TypeError) as error:
++            return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
++        measurement_setup = adapter.measurement_setup()
++        cached = archive.find_measured(parameter_key, measurement_setup)
++        if cached:
++            return {'success': True, 'cached': True, 'ngspice_attempts': 0,
++                    'design_id': cached['design_id'], 'parent_id': cached['parent_id'],
++                    'measurement_simulation_count': cached['metadata']['cumulative_simulation_count'],
++                    **{key: cached[key] for key in ('specs', 'reward', 'hard_satisfied', 'violated_constraints')},
++                    'simulation_count': total_attempts(), 'remaining': MAX_SIMULATIONS-total_attempts()}
+         rejected = protocol_guard('llm', 1, parameters)
+         if rejected:
+             return rejected
+-        try:
+-            if not isinstance(hypothesis, str) or len(hypothesis) > 300:
+-                raise ValueError('hypothesis must be a string of at most 300 characters')
+-            adapter.validate_parameters(parameters)
+-        except (ValueError, TypeError) as error:
+-            return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
+         if total_attempts() >= MAX_SIMULATIONS:
+             return {'success': False, 'error': 'Simulation budget exhausted', 'simulation_count': total_attempts(), 'remaining': 0}
+         started = perf_counter()
+@@ -148,8 +156,9 @@
+                 assessment = adapter.assess(env.simulate(parameters))
+             candidate = archive.add(parameters, assessment, 'LLM', os.environ.get('CAD_RUN_ID', RUN.name),
+                 {'completed': True, 'simulator': 'ngspice', 'simulation_id': env.simulation_engine.random_name,
+-                 'simulation_count': total_attempts()}, parent_id, hypothesis)
+-            result = {'success': True, 'design_id': candidate['design_id'],
++                 'simulation_count': total_attempts(), 'measurement_setup': measurement_setup,
++                 'parameter_key': parameter_key}, parent_id, hypothesis)
++            result = {'success': True, 'cached': False, 'design_id': candidate['design_id'],
+                       **{key: assessment[key] for key in ('specs', 'reward', 'hard_satisfied', 'violated_constraints')}}
+             if td3_session:
+                 result['replay'] = td3_session.flush()
+@@ -205,11 +214,18 @@
+     """Copy a measured base and evaluate absolute changed values using the same budget."""
+     with lock:
+         try:
+-            parameters, actual = apply_changes(archive.get(base_design_id)['parameters'], changes)
++            base = archive.get(base_design_id)['parameters']
++            parameters, actual = apply_changes(base, changes)
++            if adapter.parameter_key(parameters) == adapter.parameter_key(base):
++                raise ValueError('changes do not change the base design on its sizing grid')
+         except ValueError as error:
+             return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
+         result = _evaluate(parameters, hypothesis, base_design_id)
+-        result.update(parent_id=base_design_id, changes=actual)
++        result.update(changes=actual)
++        if result.get('cached'):
++            result['requested_parent_id'] = base_design_id
++        else:
++            result['parent_id'] = base_design_id
+         return result
+
+
+@@ -222,7 +238,20 @@
+     with lock:
+         if not 1 <= len(changes_list) <= 5:
+             return {'success': False, 'error': 'Use one to five probes'}
+-        rejected = protocol_guard('llm', len(changes_list))
++        new_keys = set()
++        try:
++            base = archive.get(base_design_id)['parameters']
++        except ValueError as error:
++            return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
++        for changes in changes_list:
++            try:
++                parameters, _ = apply_changes(base, changes)
++                key = adapter.parameter_key(parameters)
++                if archive.find_measured(key, adapter.measurement_setup()) is None:
++                    new_keys.add(tuple(key))
++            except (ValueError, TypeError):
++                continue  # Individual evaluation returns the validation error without simulating.
++        rejected = protocol_guard('llm', len(new_keys)) if new_keys else None
+         if rejected:
+             return rejected
+         results = [evaluate_candidate(base_design_id, changes, hypothesis) for changes in changes_list]
+--- before/llm/GEMINI.md
++++ after/llm/GEMINI.md
+@@ -7,9 +7,10 @@
+ Use get_problem for current physical grids, units, targets and budget. Use archive
+ IDs and absolute changes for refinement. Python handles validation, reward,
+ feasibility, differences and ranking. A positive reward does not prove feasibility.
+-Use the verified opamp-physics device map and sizing-experiments policy: one small
+-change by default, two coupled values with reason, larger changes only with an
+-explicit justification. Prefer independent probes for uncertain effects and wait
++Use the verified opamp-physics device map and sizing-experiments policy. Explore
++major violations with justified changes, including coupled values where needed;
++refine near-feasible designs with smaller area/current and margin trade-offs.
++Prefer independent probes for uncertain effects and wait
+ for measurements. Refine a promising measured LLM/TD3 base rather than repeatedly
+ returning to the initial circuit. Preserve hard margins when optimizing area/current.
+ Zero UGBW/PHM is a measured penalized fallback, not a simulator failure.
+@@ -33,3 +34,7 @@
+ Follow the coordinator's exact tool schemas and local-refinement sequence: full
+ measured base, one informed consultation, independent probes, measured follow-up.
+ Reuse returned data; avoid no-op tests, status polling and intermediate essays.
++Reuse the same specialist and its actual advice via native reply/wait; do not
++reinvoke it for delivery uncertainty. Cached designs retain original measurements
++and consume zero simulations. Keep a short tested-changes ledger and choose new
++informative experiments to finish the fixed protocol.
+--- before/llm/experiment.md
++++ after/llm/experiment.md
+@@ -3,20 +3,22 @@
+
+ Read get_problem once; the selected workflow below takes precedence over generic
+ phase suggestions. Retrieve candidates only when selecting a measured refinement
+-base. Starting suggestion for an LLM phase only, when no useful current-setup
++base whose full data is not already supplied or retained. Starting suggestion for an LLM phase only, when no useful current-setup
+ measured base exists or the explicit protocol requires it: {{start}}
+
+ Prefer a promising measured base from either LLM or TD3; consider feasibility,
+ violations and margins, not reward alone. Consult circuit-sizing-specialist
+ once for local refinement, supplying the full measured base, targets, relevant
+-grids, margins and recent outcomes. Retrieve sizes with
++grids, margins and recent outcomes. Retain that specialist and wait for its native
++reply, without task polling or reinvoking the same question. Retrieve missing sizes with
+ get_candidates(design_id="ID", include_parameters=True); no format argument.
+
+ {{workflow}}
+
+-Follow the verified topology and controlled-change skills: one small grid-aligned
+-parameter change and one short hypothesis/trade-off by default. Explain coupling
+-or an unavoidable larger test. Use independent one-parameter probe_parameters
++Follow the verified topology: check device roles before hypotheses. Explore major
++violations with justified changes, including coupled values where appropriate;
++refine near-feasible designs with smaller area/current and margin trade-offs.
++Use one short hypothesis/trade-off and explain larger changes. Use independent probe_parameters
+ changes to the SAME base for uncertainty; evaluate_candidate is enough for a clear
+ single modification. Inspect results before dependent follow-ups and avoid repeats.
+ Use probe_parameters(base_design_id="ID", changes_list=[{"parameter": absolute_value}])
+@@ -24,6 +26,10 @@
+ evaluate_candidate(base_design_id="ID", changes={"parameter": absolute_value})
+ for a targeted refinement. Changes must be nonempty, grid-valid and different
+ from the base; omit duplicate tests. Inspect results before choosing dependent values.
++Keep a compact base/change/outcome ledger. Combine independently successful
++changes when their interaction merits a test. Cached results are old measurements
++with their original IDs, not new simulations; no-op requests are rejected. Neither
++advances the fixed attempt schedule. Choose another informative design instead.
+ Fixed modes complete the predefined schedule. Adaptive mode completes mandatory
+ warmup, then independently chooses methods within its ceilings; voluntary stopping
+ requires a documented assessment that neither remaining method is useful.
+--- before/llm/.agents/agents/coordinator.md
++++ after/llm/.agents/agents/coordinator.md
+@@ -19,8 +19,17 @@
+ Only you may call the seven MCP tools. Consult circuit-sizing-specialist using
+ native delegation/messages, with MCP and writes disabled. Reuse that one specialist;
+ do not create other roles. Send measured bottlenecks, relevant sizes/grids and a
+-small history; request Bottleneck, Hypothesis, Changes and Trade-off. Obtain the
++small history; request exact changes and a short physical hypothesis/trade-off. Obtain the
+ actual reply before attributing advice; do not impersonate an unavailable specialist.
++Invoke it once for the initial physical question, retain its returned identity and
++advice, and use send_message to that same specialist only for a new measured issue.
++Wait for the native completion/reply using wait when needed. No task-status polling
++or second invocation just because a reply has not yet arrived. If delivery fails,
++report the limitation rather than inventing advice or starting repeated consultations.
++Before applying advice, check the static device map in opamp-physics; the input
++pair is mn1/mn2, mirror load mp1/mp2, shared reference mn3, tail mn4, amplifier mp3,
++output sink mn5, compensation Cc/Rc. Reject role-swapped explanations. mn3 can
++change both stage biases; total supply current is not a measured tail current.
+
+ Tool calls (use exactly these argument names; numeric values are finite SI values):
+ - get_problem(): current grids, units, targets and budget; read once and reuse.
+@@ -43,7 +52,9 @@
+
+ Read get_problem once. Follow the selected strategy's phase order before evaluating
+ any LLM design; TD3-first phases need no initial LLM measurement or consultation.
+-Read get_candidates when selecting an LLM refinement base. Measure an initial
++Read get_candidates only for a base whose sizes/specs are not already available.
++Keep supplied sizes and apply your own recorded changes locally in context; do not
++retrieve the same full record or top-k history after each batch. Measure an initial
+ design only in an LLM phase without a useful current-setup base, or when the
+ explicit protocol requires it. Afterwards prefer promising measured designs
+ from either source, including TD3; do not repeatedly restart from a poor initial
+@@ -51,7 +62,7 @@
+ For feasible bases refine area/current while protecting hard margins; otherwise
+ address the limiting constraint. Retrieve full sizes before proposing absolute changes.
+
+-Default local refinement: retrieve the measured base and full parameters; consult
++Default local refinement: reuse the measured base and full parameters; consult
+ the specialist ONCE with base ID, sizes, measured specs, targets, relevant grids,
+ margins and tested changes; obtain its reply; batch independent controlled probes;
+ inspect results; then make another batch or targeted refinement only if justified.
+@@ -70,12 +81,14 @@
+ Keep intermediate text to a short decision/hypothesis; detailed diagnosis belongs
+ with the specialist. Finish with a concise measured summary.
+
+-Use one physical hypothesis and one small grid-aligned change by default; two
+-coupled parameters need a reason. More changes or a large jump require an explicit
+-reason they cannot be tested separately. Prefer independent one-parameter probes
+-of the same base when effects are uncertain; evaluate_candidate is enough for a
+-clear single change. Inspect measurements before a dependent next experiment.
+-Avoid tested duplicates/failed changes and preserve promising properties.
++Explore major violations with justified changes, including coupled values when
++their interaction matters. Refine near-feasible bases with smaller changes to
++area/current and margins. Avoid uncontrolled jumps; use independent same-base
++probes for uncertain sensitivity. Combine measured successful changes when useful,
++then measure the interaction. Avoid tested duplicates/failed changes and no-ops.
++Cached results are existing measurements, not new evaluations: keep their original
++ID and count zero attempts. Track current/best IDs and a short changes/outcome
++ledger; choose genuinely new informative values to complete the fixed schedule.
+
+ The selected strategy controls phase order, switch conditions and whether further
+ training is allowed; do not substitute a generic alternating workflow. Deferred
+--- before/llm/.agents/agents/circuit-sizing-specialist.md
++++ after/llm/.agents/agents/circuit-sizing-specialist.md
+@@ -14,22 +14,26 @@
+ # System Prompt
+
+ Use the verified device mapping in opamp-physics; do not reassign roles from names.
++Before recommending values, check that the proposed device role and bias direction
++match that map: mn1/mn2 input pair; mp1/mp2 mirror load; mn3 shared reference;
++mn4 tail mirror; mp3 second-stage PMOS amplifier; mn5 output sink; Cc/Rc compensation.
++mn3 controls the reference gate shared by mn4 and mn5, not an isolated output load.
++Perform this check silently; do not repeat the full topology or a reasoning template.
+ Work from the supplied measured base, CURRENT get_problem targets/grids, margins
+ and recent tested changes. Ask the coordinator for missing relevant data.
+
+-Choose one bottleneck and one physical hypothesis. Propose ONE exact absolute
+-parameter value, normally one or a few grid steps away. Allow two coupled values
+-with a clear reason. Avoid three or more changes or large jumps unless you briefly
+-justify why separate tests are inadequate. For uncertain effects, suggest a small
+-set of independent one-parameter probes around the same base; await measurements
+-before a dependent follow-up. Preserve useful margins; do not repeat failed changes.
+-For feasible bases, target area/current while protecting hard constraints.
++Explore major violations with justified changes, including two coupled values
++when their interaction is needed. Near feasibility, refine area/current with
++smaller changes and protect hard margins. Avoid uncontrolled multi-parameter jumps.
++Use independent probes when sensitivity is uncertain. Combine measured successful
++changes when their interaction is worth testing, without assuming additive effects.
++Use recent outcomes to reject failed directions and repeated/no-op vectors.
+
+-Normally return about 100 words:
+-- Bottleneck: measured limitation, or vulnerable margin on a feasible design.
+-- Hypothesis: suspected physical cause, separate from verified topology.
+-- Changes: base ID and one/two grid-aligned absolute values (or independent probes).
+-- Trade-off: expected improvement direction and what might worsen.
++Return a short actionable recommendation: base ID, bottleneck, exact absolute
++changes or independent probes, and the physical hypothesis/trade-off. Usually
++under 100 words; include extra engineering detail only when it changes the decision.
++Answer once with the useful advice; retain prior conclusions for a genuinely new
++measured question rather than repeating the same consultation.
+
+ No invented DC currents, gm, saturation, poles or precise numeric predictions
+ without measured evidence. No simulator, TD3, tools, shell, file edits, further
+--- before/llm/.agents/skills/opamp-physics/SKILL.md
++++ after/llm/.agents/skills/opamp-physics/SKILL.md
+@@ -23,6 +23,12 @@
+ and output load CL are fixed by the testbench, not among these sizing actions.
+ mn3 shares its gate voltage with BOTH mn4 and mn5: changing the reference can
+ change both stage biases. It is not the second-stage signal amplifier.
++Before proposing a hypothesis, silently check its affected devices against this
++map. In particular, lp1/wp1/mp1 change the PMOS mirror LOAD, not input-pair gm;
++ln1/wn1/mn1 change the NMOS INPUT PAIR. mn3 is the shared reference, mn5 the
++output sink. Do not swap these roles in advice or the final parameter table.
++Reducing mn3 or wn3 can increase BOTH mirrored currents; it is not a direct
++second-stage current reduction. Measured total supply current is not tail current.
+
+ Hypotheses, not measured operating points:
+ - Under a simple matched, saturated mirror approximation, output current depends
+--- before/llm/.agents/skills/sizing-experiments/SKILL.md
++++ after/llm/.agents/skills/sizing-experiments/SKILL.md
+@@ -9,12 +9,13 @@
+ Distinguish hard constraints from area/current optimization scales; positive reward
+ alone does not prove feasibility.
+
+-For each decision: inspect a measured base and its limiting constraint; choose
+-one physical hypothesis; change ONE parameter, normally by one or a few grid
+-steps; state the expected direction and likely trade-off. Two coupled parameters
+-are allowed with a clear physical reason. Three or more changes, or a large grid
+-jump, need an explicit reason they cannot reasonably be tested separately. This
+-is an instruction policy, not an added Python restriction.
++Explore major violations with a measured bottleneck and a physically justified
++change. Two coupled parameters are appropriate when their interaction addresses
++the bottleneck or protects a vulnerable constraint; do not force separate tests.
++Refine near-feasible/feasible bases with smaller grid-aligned changes to area/current
++while protecting hard constraints and useful margins. Use one short hypothesis
++and trade-off; justify larger jumps or broader changes by the available evidence.
++Do not spend the budget making tiny changes that cannot address a major violation.
+
+ For uncertain effects, prefer probe_parameters: test a few distinct, small,
+ one-parameter perturbations of the SAME measured base. Each changes dictionary
+@@ -29,6 +30,12 @@
+ For infeasible designs, address the bottleneck and protect useful existing margins.
+ Check recent base/change/outcome history to avoid identical or failed repeats;
+ retesting needs a changed context and stated reason. Preserve the best verified ID.
++Combine individually successful modifications when testing their interaction is
++informative; inspect the combined measurement rather than assuming additivity.
++Keep a compact ledger of base ID, changes and outcome. Reuse identical measured
++vectors. A cached response retains its original ID/parent and measurement index,
++uses zero attempts, and does not advance the fixed simulation schedule. A no-op
++is rejected without simulation; choose a genuinely new informative design next.
+
+ Wait for actual measurements before the next dependent modification. Keep only a
+ compact recent history and one short hypothesis/trade-off. Report returned values
+--- before/codex_tests/test_mcp_server.py
++++ after/codex_tests/test_mcp_server.py
+@@ -101,7 +101,7 @@
+             failed = server.evaluate_candidate(base['design_id'], {'res': 6100.})
+             self.assertFalse(failed['success'])
+             self.assertEqual(failed['simulation_count'], 2)
+-            self.assertIn('budget', server.simulate_design(PARAMETERS)['error'])
++            self.assertTrue(server.simulate_design(PARAMETERS)['cached'])
+             self.assertIn('budget', server.evaluate_candidate(base['design_id'], {'res': 6200.})['error'])
+             self.assertEqual(self.engine.call_count, 2)
+             self.assertEqual(len(self.archive.records()), 1)
+@@ -124,14 +124,15 @@
+         self.measure.return_value = dict(server.env.dict_targets, gain=190.)
+         server.simulate_design(PARAMETERS)
+         self.measure.return_value = dict(server.env.dict_targets)
+-        best = server.simulate_design(PARAMETERS)
+-        server.simulate_design(dict(PARAMETERS, res=6100.))
++        best = server.simulate_design(dict(PARAMETERS, res=6100.))
++        server.simulate_design(dict(PARAMETERS, res=6200.))
++        server.simulate_design(dict(PARAMETERS, res=6200.))  # Reuse, no extra archive row.
+         ranked = server.get_candidates()['candidates']
+-        self.assertEqual(len(ranked), 2)
++        self.assertEqual(len(ranked), 3)
+         self.assertNotIn('parameters', ranked[0])
+         reloaded = CandidateArchive(self.archive.path, self.archive.problem_id)
+         self.assertEqual(len(reloaded.records()), 3)
+-        self.assertEqual(reloaded.get(best['design_id'])['parameters'], PARAMETERS)
++        self.assertEqual(reloaded.get(best['design_id'])['parameters'], dict(PARAMETERS, res=6100.))
+         self.assertEqual(ranked[0]['reward'], .3)
+
+     def test_nonfinite_measurements_and_zero_fallback(self):
+--- before/codex_tests/test_candidate_reuse.py
++++ after/codex_tests/test_candidate_reuse.py
+@@ -0,0 +1,112 @@
++"""Measured-design reuse through real validation/reward code, mocked ngspice only."""
++import json
++import unittest
++from unittest.mock import patch
++
++from codex_tests import test_mcp_server as fixtures
++from candidates import CandidateArchive
++
++server = fixtures.server
++PARAMETERS = fixtures.PARAMETERS
++
++
++class TestCandidateReuse(unittest.TestCase):
++    def setUp(self):
++        fixtures.TestSimulatorTool.setUp(self)
++
++    def test_duplicate_grid_vector_persists_without_new_measurement_or_reward(self):
++        first = server.simulate_design(dict(PARAMETERS, res=6100.))
++        original = self.archive.get(first['design_id'])
++        self.measure.return_value = dict(server.env.dict_targets, gain=1.)
++        reloaded = CandidateArchive(self.archive.path, self.archive.problem_id)
++        with patch.object(server, 'archive', reloaded), patch.object(server, 'MAX_SIMULATIONS', 1):
++            cached = server.simulate_design(dict(PARAMETERS, res=6100. + 1e-10))
++        self.assertTrue(cached['cached'])
++        self.assertEqual(cached['design_id'], first['design_id'])
++        self.assertEqual(cached['specs'], first['specs'])
++        self.assertEqual(cached['reward'], first['reward'])
++        self.assertEqual(cached['hard_satisfied'], first['hard_satisfied'])
++        self.assertEqual(cached['ngspice_attempts'], 0)
++        self.assertEqual(cached['simulation_count'], 1)
++        self.assertEqual(cached['measurement_simulation_count'], 1)
++        self.assertEqual(cached['remaining'], 0)
++        self.assertEqual(reloaded.records(), [original])
++        self.assertEqual(self.engine.call_count, 1)
++        self.assertEqual(self.measure.call_count, 1)
++
++    def test_cached_result_keeps_original_parent_and_reports_request_parent(self):
++        first = server.simulate_design(PARAMETERS)
++        child = server.evaluate_candidate(first['design_id'], {'res': 6100.})
++        cached = server.evaluate_candidate(child['design_id'], {'res': 6000.})
++        self.assertEqual(cached['design_id'], first['design_id'])
++        self.assertIsNone(cached['parent_id'])
++        self.assertEqual(cached['requested_parent_id'], child['design_id'])
++        self.assertEqual(self.archive.get(child['design_id'])['parent_id'], first['design_id'])
++        self.assertEqual(len(self.archive.records()), 2)
++        self.assertEqual(self.engine.call_count, 2)
++
++    def test_noop_rejection_including_equivalent_grid_values(self):
++        first = server.simulate_design(PARAMETERS)
++        for change in ({}, {'res': 6000.}, {'res': 6000. + 1e-10}):
++            result = server.evaluate_candidate(first['design_id'], change)
++            self.assertFalse(result['success'])
++            self.assertIn('change', result['error'])
++        self.assertEqual(self.engine.call_count, 1)
++        self.assertEqual(server.total_attempts(), 1)
++
++    def test_probe_duplicates_do_not_consume_protocol_or_simulation_budget(self):
++        protocol = {'plan': [{'tool': 'llm', 'steps': 3}], 'initial_design': PARAMETERS}
++        with patch.object(server, 'PROTOCOL', protocol), patch.object(server, 'RUN', self.folder), \
++                patch.object(server, 'MAX_SIMULATIONS', 3):
++            first = server.simulate_design(PARAMETERS)
++            result = server.probe_parameters(first['design_id'],
++                [{'res': 6100.}, {'res': 6100.}, {'res': 6200.}])
++            self.assertTrue(result['success'], result)
++            self.assertEqual(result['probes'][0]['design_id'], result['probes'][1]['design_id'])
++            self.assertTrue(result['probes'][1]['cached'])
++            self.assertEqual(result['simulation_count'], 3)
++            self.assertTrue(server.protocol_state()['complete'])
++            cached = server.probe_parameters(first['design_id'], [{'res': 6100.}, {'res': 6200.}])
++            self.assertTrue(all(p['cached'] for p in cached['probes']))
++            self.assertTrue(server.protocol_state()['complete'])
++            logs = [json.loads(line) for line in (self.folder / 'calls.jsonl').read_text().splitlines()]
++            hits = [e for e in logs if e.get('result', {}).get('cached')]
++            self.assertEqual(len(hits), 3)
++            self.assertTrue(all(e['ngspice_attempts'] == 0 for e in hits))
++        self.assertEqual(self.engine.call_count, 3)
++        self.assertEqual(len(self.archive.records()), 3)
++
++    def test_failed_attempt_is_charged_and_never_cached(self):
++        self.engine.return_value = 1
++        with patch.object(server, 'MAX_SIMULATIONS', 1):
++            failed = server.simulate_design(PARAMETERS)
++            self.assertFalse(failed['success'])
++            self.assertEqual(failed['simulation_count'], 1)
++            blocked = server.simulate_design(PARAMETERS)
++            self.assertIn('budget', blocked['error'])
++        self.assertEqual(self.engine.call_count, 1)
++        self.assertEqual(self.archive.records(), [])
++
++    def test_setup_and_fixture_isolation(self):
++        first = server.simulate_design(PARAMETERS)
++        record = self.archive.get(first['design_id'])
++        key = server.adapter.parameter_key(PARAMETERS)
++        setup = server.adapter.measurement_setup()
++        self.assertIsNone(self.archive.find_measured(key, 'different-setup'))
++        with patch.dict(server.env.pvt_corner, temp=85):
++            self.assertNotEqual(server.adapter.measurement_setup(), setup)
++            self.assertFalse(server.simulate_design(PARAMETERS)['cached'])
++        other = CandidateArchive(self.folder / 'other.jsonl', 'different-problem')
++        other.path = self.archive.path
++        self.assertIsNone(other.find_measured(key, setup))
++        record['metadata']['fixture'] = True
++        self.archive.path.write_text(json.dumps(record) + '\n')
++        self.assertIsNone(self.archive.find_measured(key, setup))
++        del record['metadata']['fixture']
++        del record['metadata']['measurement_setup']
++        self.archive.path.write_text(json.dumps(record) + '\n')
++        self.assertIsNone(self.archive.find_measured(key, setup))
++
++
++if __name__ == '__main__':
++    unittest.main(verbosity=2)

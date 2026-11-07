@@ -1,0 +1,137 @@
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+test_cached_result_keeps_original_parent_and_reports_request_parent (codex_tests.test_candidate_reuse.TestCandidateReuse.test_cached_result_keeps_original_parent_and_reports_request_parent) ... ok
+test_duplicate_grid_vector_persists_without_new_measurement_or_reward (codex_tests.test_candidate_reuse.TestCandidateReuse.test_duplicate_grid_vector_persists_without_new_measurement_or_reward) ... ok
+test_failed_attempt_is_charged_and_never_cached (codex_tests.test_candidate_reuse.TestCandidateReuse.test_failed_attempt_is_charged_and_never_cached) ... ok
+test_noop_rejection_including_equivalent_grid_values (codex_tests.test_candidate_reuse.TestCandidateReuse.test_noop_rejection_including_equivalent_grid_values) ... ok
+test_probe_duplicates_do_not_consume_protocol_or_simulation_budget (codex_tests.test_candidate_reuse.TestCandidateReuse.test_probe_duplicates_do_not_consume_protocol_or_simulation_budget) ... ok
+test_setup_and_fixture_isolation (codex_tests.test_candidate_reuse.TestCandidateReuse.test_setup_and_fixture_isolation) ... ok
+test_adaptive_backend_caps_and_reason_are_metadata_only (codex_tests.test_persistent_session.TestPersistentSession.test_adaptive_backend_caps_and_reason_are_metadata_only) ... ok
+test_adaptive_optional_training_and_documented_completion (codex_tests.test_persistent_session.TestPersistentSession.test_adaptive_optional_training_and_documented_completion) ... ok
+test_adaptive_warmup_returns_one_measured_base_without_training (codex_tests.test_persistent_session.TestPersistentSession.test_adaptive_warmup_returns_one_measured_base_without_training) ... ok
+test_budget_rejects_whole_batch_before_initialization (codex_tests.test_persistent_session.TestPersistentSession.test_budget_rejects_whole_batch_before_initialization) ... ok
+test_completion_checks_order_plateau_failures_and_no_reward_stop (codex_tests.test_persistent_session.TestPersistentSession.test_completion_checks_order_plateau_failures_and_no_reward_stop) ... ok
+test_failed_td3_evaluation_requires_a_fresh_reset (codex_tests.test_persistent_session.TestPersistentSession.test_failed_td3_evaluation_requires_a_fresh_reset) ... ok
+test_guided_then_random_warmup_reuses_both_tested_functions (codex_tests.test_persistent_session.TestPersistentSession.test_guided_then_random_warmup_reuses_both_tested_functions) ... ok
+test_launcher_preserves_measurements_and_reports_cli_failures (codex_tests.test_persistent_session.TestPersistentSession.test_launcher_preserves_measurements_and_reports_cli_failures) ... ok
+test_llm_intervention_does_not_touch_live_td3_episode_or_networks (codex_tests.test_persistent_session.TestPersistentSession.test_llm_intervention_does_not_touch_live_td3_episode_or_networks) ... ok
+test_llm_only_and_compact_candidate_retrieval (codex_tests.test_persistent_session.TestPersistentSession.test_llm_only_and_compact_candidate_retrieval) ... ok
+test_multiple_train_calls_keep_agent_buffer_and_optimizer_state (codex_tests.test_persistent_session.TestPersistentSession.test_multiple_train_calls_keep_agent_buffer_and_optimizer_state) ... ok
+test_probes_are_independent_and_invalid_probe_does_not_simulate (codex_tests.test_persistent_session.TestPersistentSession.test_probes_are_independent_and_invalid_probe_does_not_simulate) ... ok
+test_public_stream_keeps_tool_rejections_without_private_text (codex_tests.test_persistent_session.TestPersistentSession.test_public_stream_keeps_tool_rejections_without_private_text) ... ok
+test_standalone_runner_keeps_random_only_episode_behavior (codex_tests.test_persistent_session.TestPersistentSession.test_standalone_runner_keeps_random_only_episode_behavior) ... ok
+test_strategy_switch_policy_and_invalid_selection (codex_tests.test_persistent_session.TestPersistentSession.test_strategy_switch_policy_and_invalid_selection) ... ok
+test_td3_response_is_compact_but_audit_retains_all_ids (codex_tests.test_persistent_session.TestPersistentSession.test_td3_response_is_compact_but_audit_retains_all_ids) ... ok
+test_terminal_state_defers_until_next_measured_reset (codex_tests.test_persistent_session.TestPersistentSession.test_terminal_state_defers_until_next_measured_reset) ... ok
+test_real_stdio_workflow (codex_tests.test_persistent_session.TestRealPersistentMCP.test_real_stdio_workflow) ... skipped 'Opt-in actual ngspice/MCP smoke'
+test_action_reconstructs_endpoints_and_physical_grid (codex_tests.test_replay_injection.TestReplayInjection.test_action_reconstructs_endpoints_and_physical_grid) ... ok
+test_duplicate_ids_are_not_inserted_again (codex_tests.test_replay_injection.TestReplayInjection.test_duplicate_ids_are_not_inserted_again) ... ok
+test_rejects_unmeasured_inconsistent_and_old_designs (codex_tests.test_replay_injection.TestReplayInjection.test_rejects_unmeasured_inconsistent_and_old_designs) ... ok
+test_requires_a_current_measured_state (codex_tests.test_replay_injection.TestReplayInjection.test_requires_a_current_measured_state) ... ok
+test_terminal_flag_matches_environment_time_limit (codex_tests.test_replay_injection.TestReplayInjection.test_terminal_flag_matches_environment_time_limit) ... ok
+test_transition_uses_current_state_and_keeps_episode_unchanged (codex_tests.test_replay_injection.TestReplayInjection.test_transition_uses_current_state_and_keeps_episode_unchanged) ... ok
+test_archive_clock_includes_model_delay_and_preserves_origins (codex_tests.test_mcp_server.TestSimulatorTool.test_archive_clock_includes_model_delay_and_preserves_origins) ... ok
+test_backend_schedule_guard_and_reset_measurement_audit (codex_tests.test_mcp_server.TestSimulatorTool.test_backend_schedule_guard_and_reset_measurement_audit) ... ok
+test_base_changes_are_absolute_and_original_is_unchanged (codex_tests.test_mcp_server.TestSimulatorTool.test_base_changes_are_absolute_and_original_is_unchanged) ... ok
+test_distinct_ranking_persistence_and_compact_retrieval (codex_tests.test_mcp_server.TestSimulatorTool.test_distinct_ranking_persistence_and_compact_retrieval) ... ok
+test_invalid_values_do_not_simulate (codex_tests.test_mcp_server.TestSimulatorTool.test_invalid_values_do_not_simulate) ... ok
+test_nonfinite_measurements_and_zero_fallback (codex_tests.test_mcp_server.TestSimulatorTool.test_nonfinite_measurements_and_zero_fallback) ... ok
+test_problem_is_read_only_and_uses_yaml_values (codex_tests.test_mcp_server.TestSimulatorTool.test_problem_is_read_only_and_uses_yaml_values) ... ok
+test_shared_budget_includes_failed_attempts (codex_tests.test_mcp_server.TestSimulatorTool.test_shared_budget_includes_failed_attempts) ... ok
+test_valid_evaluation_uses_existing_reward_and_stores_hypothesis (codex_tests.test_mcp_server.TestSimulatorTool.test_valid_evaluation_uses_existing_reward_and_stores_hypothesis) ... ok
+test_documented_calls_match_existing_tool_arguments (codex_tests.test_multi_agent.TestMultiAgent.test_documented_calls_match_existing_tool_arguments) ... ok
+test_native_roles_restrict_specialist_tools (codex_tests.test_multi_agent.TestMultiAgent.test_native_roles_restrict_specialist_tools) ... ok
+test_prompt_uses_one_hypothesis_without_telemetry_schema (codex_tests.test_multi_agent.TestMultiAgent.test_prompt_uses_one_hypothesis_without_telemetry_schema) ... ok
+test_stdio_discovery_and_budget_zero (codex_tests.test_multi_agent.TestMultiAgent.test_stdio_discovery_and_budget_zero) ...
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+ok
+test_counts_include_unarchived_resets_failures_and_all_sources (codex_tests.test_efficiency.TestEfficiency.test_counts_include_unarchived_resets_failures_and_all_sources) ... ok
+test_duplicate_or_missing_attempts_prevent_timing_claims (codex_tests.test_efficiency.TestEfficiency.test_duplicate_or_missing_attempts_prevent_timing_claims) ... ok
+test_hypothetical_break_even_at_same_threshold (codex_tests.test_efficiency.TestEfficiency.test_hypothetical_break_even_at_same_threshold) ... ok
+test_missing_timing_and_no_feasible_design_are_unknown (codex_tests.test_efficiency.TestEfficiency.test_missing_timing_and_no_feasible_design_are_unknown) ... ok
+test_offline_comparison_cli_and_uncharged_external_data_guard (codex_tests.test_efficiency.TestEfficiency.test_offline_comparison_cli_and_uncharged_external_data_guard) ... ok
+test_wrapper_logs_success_failure_and_launch_error_without_real_processes (codex_tests.test_efficiency.TestEfficiency.test_wrapper_logs_success_failure_and_launch_error_without_real_processes) ... ok
+
+----------------------------------------------------------------------
+Ran 49 tests in 21.338s
+
+OK (skipped=1)
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+
+ Initialized TwoStage with simulator ngspice
+
+Saved offline efficiency analysis: <user-profile>\Documents\CADproject\cad-git\codex_tests\artifacts\efficiency\tmpxr2w_4ft\comparison.json
+Saved offline efficiency analysis: <user-profile>\Documents\CADproject\cad-git\codex_tests\artifacts\efficiency\tmpxr2w_4ft\comparison.json

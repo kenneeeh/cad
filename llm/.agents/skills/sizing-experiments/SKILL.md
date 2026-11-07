@@ -9,12 +9,13 @@ Convert um/nm/pF to SI before submission. Python rejects rather than repairs inp
 Distinguish hard constraints from area/current optimization scales; positive reward
 alone does not prove feasibility.
 
-For each decision: inspect a measured base and its limiting constraint; choose
-one physical hypothesis; change ONE parameter, normally by one or a few grid
-steps; state the expected direction and likely trade-off. Two coupled parameters
-are allowed with a clear physical reason. Three or more changes, or a large grid
-jump, need an explicit reason they cannot reasonably be tested separately. This
-is an instruction policy, not an added Python restriction.
+Explore major violations with a measured bottleneck and a physically justified
+change. Two coupled parameters are appropriate when their interaction addresses
+the bottleneck or protects a vulnerable constraint; do not force separate tests.
+Refine near-feasible/feasible bases with smaller grid-aligned changes to area/current
+while protecting hard constraints and useful margins. Use one short hypothesis
+and trade-off; justify larger jumps or broader changes by the available evidence.
+Do not spend the budget making tiny changes that cannot address a major violation.
 
 For uncertain effects, prefer probe_parameters: test a few distinct, small,
 one-parameter perturbations of the SAME measured base. Each changes dictionary
@@ -29,6 +30,12 @@ For feasible designs, refine area/current while preserving hard-constraint margi
 For infeasible designs, address the bottleneck and protect useful existing margins.
 Check recent base/change/outcome history to avoid identical or failed repeats;
 retesting needs a changed context and stated reason. Preserve the best verified ID.
+Combine individually successful modifications when testing their interaction is
+informative; inspect the combined measurement rather than assuming additivity.
+Keep a compact ledger of base ID, changes and outcome. Reuse identical measured
+vectors. A cached response retains its original ID/parent and measurement index,
+uses zero attempts, and does not advance the fixed simulation schedule. A no-op
+is rejected without simulation; choose a genuinely new informative design next.
 
 Wait for actual measurements before the next dependent modification. Keep only a
 compact recent history and one short hypothesis/trade-off. Report returned values

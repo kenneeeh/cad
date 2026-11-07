@@ -129,15 +129,23 @@ def audited(function):
 
 def _evaluate(parameters, hypothesis, parent_id=None):
     with lock:
-        rejected = protocol_guard('llm', 1, parameters)
-        if rejected:
-            return rejected
         try:
             if not isinstance(hypothesis, str) or len(hypothesis) > 300:
                 raise ValueError('hypothesis must be a string of at most 300 characters')
-            adapter.validate_parameters(parameters)
+            parameter_key = adapter.parameter_key(parameters)
         except (ValueError, TypeError) as error:
             return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
+        measurement_setup = adapter.measurement_setup()
+        cached = archive.find_measured(parameter_key, measurement_setup)
+        if cached:
+            return {'success': True, 'cached': True, 'ngspice_attempts': 0,
+                    'design_id': cached['design_id'], 'parent_id': cached['parent_id'],
+                    'measurement_simulation_count': cached['metadata']['cumulative_simulation_count'],
+                    **{key: cached[key] for key in ('specs', 'reward', 'hard_satisfied', 'violated_constraints')},
+                    'simulation_count': total_attempts(), 'remaining': MAX_SIMULATIONS-total_attempts()}
+        rejected = protocol_guard('llm', 1, parameters)
+        if rejected:
+            return rejected
         if total_attempts() >= MAX_SIMULATIONS:
             return {'success': False, 'error': 'Simulation budget exhausted', 'simulation_count': total_attempts(), 'remaining': 0}
         started = perf_counter()
@@ -148,8 +156,9 @@ def _evaluate(parameters, hypothesis, parent_id=None):
                 assessment = adapter.assess(env.simulate(parameters))
             candidate = archive.add(parameters, assessment, 'LLM', os.environ.get('CAD_RUN_ID', RUN.name),
                 {'completed': True, 'simulator': 'ngspice', 'simulation_id': env.simulation_engine.random_name,
-                 'simulation_count': total_attempts()}, parent_id, hypothesis)
-            result = {'success': True, 'design_id': candidate['design_id'],
+                 'simulation_count': total_attempts(), 'measurement_setup': measurement_setup,
+                 'parameter_key': parameter_key}, parent_id, hypothesis)
+            result = {'success': True, 'cached': False, 'design_id': candidate['design_id'],
                       **{key: assessment[key] for key in ('specs', 'reward', 'hard_satisfied', 'violated_constraints')}}
             if td3_session:
                 result['replay'] = td3_session.flush()
@@ -205,11 +214,18 @@ def evaluate_candidate(base_design_id: str, changes: dict[str, Number],
     """Copy a measured base and evaluate absolute changed values using the same budget."""
     with lock:
         try:
-            parameters, actual = apply_changes(archive.get(base_design_id)['parameters'], changes)
+            base = archive.get(base_design_id)['parameters']
+            parameters, actual = apply_changes(base, changes)
+            if adapter.parameter_key(parameters) == adapter.parameter_key(base):
+                raise ValueError('changes do not change the base design on its sizing grid')
         except ValueError as error:
             return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
         result = _evaluate(parameters, hypothesis, base_design_id)
-        result.update(parent_id=base_design_id, changes=actual)
+        result.update(changes=actual)
+        if result.get('cached'):
+            result['requested_parent_id'] = base_design_id
+        else:
+            result['parent_id'] = base_design_id
         return result
 
 
@@ -222,7 +238,20 @@ def probe_parameters(base_design_id: str,
     with lock:
         if not 1 <= len(changes_list) <= 5:
             return {'success': False, 'error': 'Use one to five probes'}
-        rejected = protocol_guard('llm', len(changes_list))
+        new_keys = set()
+        try:
+            base = archive.get(base_design_id)['parameters']
+        except ValueError as error:
+            return {'success': False, 'error': str(error), 'simulation_count': total_attempts()}
+        for changes in changes_list:
+            try:
+                parameters, _ = apply_changes(base, changes)
+                key = adapter.parameter_key(parameters)
+                if archive.find_measured(key, adapter.measurement_setup()) is None:
+                    new_keys.add(tuple(key))
+            except (ValueError, TypeError):
+                continue  # Individual evaluation returns the validation error without simulating.
+        rejected = protocol_guard('llm', len(new_keys)) if new_keys else None
         if rejected:
             return rejected
         results = [evaluate_candidate(base_design_id, changes, hypothesis) for changes in changes_list]

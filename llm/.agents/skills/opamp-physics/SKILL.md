@@ -23,6 +23,12 @@ independent sizing parameters. m-controls are multiplicities, not widths. ibias
 and output load CL are fixed by the testbench, not among these sizing actions.
 mn3 shares its gate voltage with BOTH mn4 and mn5: changing the reference can
 change both stage biases. It is not the second-stage signal amplifier.
+Before proposing a hypothesis, silently check its affected devices against this
+map. In particular, lp1/wp1/mp1 change the PMOS mirror LOAD, not input-pair gm;
+ln1/wn1/mn1 change the NMOS INPUT PAIR. mn3 is the shared reference, mn5 the
+output sink. Do not swap these roles in advice or the final parameter table.
+Reducing mn3 or wn3 can increase BOTH mirrored currents; it is not a direct
+second-stage current reduction. Measured total supply current is not tail current.
 
 Hypotheses, not measured operating points:
 - Under a simple matched, saturated mirror approximation, output current depends

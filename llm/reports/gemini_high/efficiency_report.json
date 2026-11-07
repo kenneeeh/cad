@@ -1,0 +1,656 @@
+{
+  "actual_ngspice_attempts": 50,
+  "attempt_log_complete": true,
+  "attempts_by_initiating_phase": {
+    "LLM": 50
+  },
+  "curve": [
+    {
+      "design_id": "design_ff552f3c0e8d4b7d9c8b6c82f9ec415d",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -1.380930440660967,
+      "feasible": false,
+      "simulation_index": 1,
+      "elapsed_s": 28.82215950009413,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_e72cb7bddd0444c4bd6d450e2a27358c",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.7726362183929776,
+      "feasible": false,
+      "simulation_index": 2,
+      "elapsed_s": 91.25923230010085,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_4dbe3bc402a5410e9889ac43746d72fe",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.9683961964952515,
+      "feasible": false,
+      "simulation_index": 3,
+      "elapsed_s": 91.55857400014065,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_d1cbab34a2e240cbaf1601e7a0a5ff3b",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.9353403658793161,
+      "feasible": false,
+      "simulation_index": 4,
+      "elapsed_s": 91.78877550014295,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_4856d4a6e95d4cca858e04e74b1ef0b6",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -1.3560830769274224,
+      "feasible": false,
+      "simulation_index": 5,
+      "elapsed_s": 92.09601640002802,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_f371cd8d156b4fd7bedd4aa3ac3d2cca",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.6728367910959083,
+      "feasible": false,
+      "simulation_index": 6,
+      "elapsed_s": 92.40581160015427,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_dd3f42dfa15744229b4efcb45a089e4d",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.40438737029298,
+      "feasible": false,
+      "simulation_index": 7,
+      "elapsed_s": 148.2486438001506,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_1c6b5391596d4143ad5a621de46064f5",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.3986401121140599,
+      "feasible": false,
+      "simulation_index": 8,
+      "elapsed_s": 148.442957600113,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_867aeceb221d45dc896a7677fec6ff0a",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.5709266146021645,
+      "feasible": false,
+      "simulation_index": 9,
+      "elapsed_s": 148.65139070013538,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_7aac470e69a74ab5b0b5404cdae7ca47",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.2917456412339991,
+      "feasible": false,
+      "simulation_index": 10,
+      "elapsed_s": 148.93947160011157,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_d6f050cb68a64fcb8b155af233fed568",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.508178804125934,
+      "feasible": false,
+      "simulation_index": 11,
+      "elapsed_s": 149.14788380009122,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_eab42cd7f49942428be35a3c0d85ddce",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.35728830187087385,
+      "feasible": false,
+      "simulation_index": 12,
+      "elapsed_s": 217.946345299948,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_582c99a585854fda94ee38cec60db651",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.35700309499680677,
+      "feasible": false,
+      "simulation_index": 13,
+      "elapsed_s": 218.13411820004694,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_43c2d19cd2a04fd0a34439fb2debfde6",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.27502739538168935,
+      "feasible": false,
+      "simulation_index": 14,
+      "elapsed_s": 218.31215870007873,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_395d7a6a8b264206a5bdf0bceee1759a",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.28167818368412917,
+      "feasible": false,
+      "simulation_index": 15,
+      "elapsed_s": 218.55852820002474,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_6da1f04df65e4fdaaaabaceb3547a1b9",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.33840511367406245,
+      "feasible": false,
+      "simulation_index": 16,
+      "elapsed_s": 218.77767840004526,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_bc404bd6889644efa6a9511e8e8db406",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.1770356450592851,
+      "feasible": false,
+      "simulation_index": 17,
+      "elapsed_s": 323.3113397001289,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_ef07b722703b42419ffeb176f9c250ac",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.15153998752791917,
+      "feasible": false,
+      "simulation_index": 18,
+      "elapsed_s": 323.5376556001138,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_8bf943771040422e8183654301dac992",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.1889449504226714,
+      "feasible": false,
+      "simulation_index": 19,
+      "elapsed_s": 323.78615790000185,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_e701557d4cad41619e2cbeb239d06b4f",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.16653631621339224,
+      "feasible": false,
+      "simulation_index": 20,
+      "elapsed_s": 323.96583850006573,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_8d92769aceff466d8e76d7947066b2e3",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.2154834430986194,
+      "feasible": false,
+      "simulation_index": 21,
+      "elapsed_s": 324.1676265001297,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_0e4c0d6f08694e9ca3d0ed6b50b09fb4",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.11257756028777482,
+      "feasible": false,
+      "simulation_index": 22,
+      "elapsed_s": 394.2334519000724,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_0758c17025044a769f58d9bc1e4a39e3",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.151572891751145,
+      "feasible": false,
+      "simulation_index": 23,
+      "elapsed_s": 394.4387970000971,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_f7e3651bc0794e68bf371393ee1eabf4",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.10834605625609793,
+      "feasible": false,
+      "simulation_index": 24,
+      "elapsed_s": 394.74995430000126,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_c5a4984ea17c4ac0973b2ba30febe08e",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.13105461500092072,
+      "feasible": false,
+      "simulation_index": 25,
+      "elapsed_s": 394.9692172999494,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_9afbddc4ce604123a205faaf035d770e",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.07645294284036099,
+      "feasible": false,
+      "simulation_index": 26,
+      "elapsed_s": 395.28012420004234,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_b50da684cd164acb95e2155ff3f66e2a",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.18530362727564814,
+      "feasible": false,
+      "simulation_index": 27,
+      "elapsed_s": 478.97926350007765,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_bda1105be0e44bdbbb436360842fcb60",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.11817656432385101,
+      "feasible": false,
+      "simulation_index": 28,
+      "elapsed_s": 479.1874542001169,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_d2502bbc5fc049c9bfda15ce0507f83f",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.14104498843879507,
+      "feasible": false,
+      "simulation_index": 29,
+      "elapsed_s": 479.4046678999439,
+      "best_feasible_reward": null
+    },
+    {
+      "design_id": "design_118ca9919281473b97a575ad23ebc9ca",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.513558963690552,
+      "feasible": true,
+      "simulation_index": 30,
+      "elapsed_s": 479.6033120001666,
+      "best_feasible_reward": 0.513558963690552
+    },
+    {
+      "design_id": "design_a04a91d5c6614ce6aebef48249860a65",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.09298600628341253,
+      "feasible": false,
+      "simulation_index": 31,
+      "elapsed_s": 479.8666771000717,
+      "best_feasible_reward": 0.513558963690552
+    },
+    {
+      "design_id": "design_84c4a06a09c54918a260b56a0a7d4ef0",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5725357065934655,
+      "feasible": true,
+      "simulation_index": 32,
+      "elapsed_s": 537.5964011000469,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_b763e66755bc425ea25964d1ae6698a0",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5480550034597096,
+      "feasible": true,
+      "simulation_index": 33,
+      "elapsed_s": 537.7858792999759,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_2e768c7fd2494cc9b99329ccbb196d04",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5416006548069252,
+      "feasible": true,
+      "simulation_index": 34,
+      "elapsed_s": 537.9834293001331,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_6f6ec3f7881048e8ab2ac84f20c58bf2",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.49490999986288703,
+      "feasible": true,
+      "simulation_index": 35,
+      "elapsed_s": 538.1916215000674,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_9d25716d7dc04b5cadf1f9ad132c1855",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.49359559690638205,
+      "feasible": true,
+      "simulation_index": 36,
+      "elapsed_s": 538.4109078000765,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_5388ccb9cccd4ddea20dfbf37830b07a",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.005126615082741088,
+      "feasible": false,
+      "simulation_index": 37,
+      "elapsed_s": 613.875500000082,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_19f5e2114e674abc9047889dae8cb883",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.023732649111610847,
+      "feasible": false,
+      "simulation_index": 38,
+      "elapsed_s": 614.1439919001423,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_869b64c33afe48e589568c732a1ae5be",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.05563372464180992,
+      "feasible": false,
+      "simulation_index": 39,
+      "elapsed_s": 614.3924686999526,
+      "best_feasible_reward": 0.5725357065934655
+    },
+    {
+      "design_id": "design_7761f2b2365e4c3d89e3793b78e6e097",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5916926799645618,
+      "feasible": true,
+      "simulation_index": 40,
+      "elapsed_s": 614.6475462000817,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_542a66e5e0d74892b99bed49a0cad883",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.003255399368515757,
+      "feasible": false,
+      "simulation_index": 41,
+      "elapsed_s": 614.8987599001266,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_2f39ba33bbeb4627a7db8aee3a2b5c1e",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5367577145463585,
+      "feasible": true,
+      "simulation_index": 42,
+      "elapsed_s": 665.580101300031,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_b1604cfeacec4b208af1c9e9f64ae31f",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.4690668802277388,
+      "feasible": true,
+      "simulation_index": 43,
+      "elapsed_s": 665.794836099958,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_18adecb5f9354b0690e0278153f0dc19",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": -0.005171369037301438,
+      "feasible": false,
+      "simulation_index": 44,
+      "elapsed_s": 665.9924058001488,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_f799f19e2601451885b58d7dd68575b3",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5711857422102199,
+      "feasible": true,
+      "simulation_index": 45,
+      "elapsed_s": 666.2112772001419,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_9b6e5b668a6a4f27947f3b5c8f875c9d",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.0042172912528426944,
+      "feasible": false,
+      "simulation_index": 46,
+      "elapsed_s": 666.4202316999435,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_fbe80a1bf39f40799372df91f7152ef4",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5875467145987139,
+      "feasible": true,
+      "simulation_index": 47,
+      "elapsed_s": 714.941132399952,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_edbb56b11778424c84e362de6145c540",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.583423219340914,
+      "feasible": true,
+      "simulation_index": 48,
+      "elapsed_s": 715.1800327999517,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_59f39c2964254dea9bd6065c379ceafd",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.579322012011196,
+      "feasible": true,
+      "simulation_index": 49,
+      "elapsed_s": 715.5055372000206,
+      "best_feasible_reward": 0.5916926799645618
+    },
+    {
+      "design_id": "design_32c583c816dd4daa8ee60368d3c51a6d",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5752429123936886,
+      "feasible": true,
+      "simulation_index": 50,
+      "elapsed_s": 715.737442499958,
+      "best_feasible_reward": 0.5916926799645618
+    }
+  ],
+  "new_best_feasible": [
+    {
+      "design_id": "design_118ca9919281473b97a575ad23ebc9ca",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.513558963690552,
+      "feasible": true,
+      "simulation_index": 30,
+      "elapsed_s": 479.6033120001666,
+      "simulator_execution_s": 5.161755200475454,
+      "non_simulator_elapsed_s": 474.44155679969117
+    },
+    {
+      "design_id": "design_84c4a06a09c54918a260b56a0a7d4ef0",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5725357065934655,
+      "feasible": true,
+      "simulation_index": 32,
+      "elapsed_s": 537.5964011000469,
+      "simulator_execution_s": 5.490757600404322,
+      "non_simulator_elapsed_s": 532.1056434996426
+    },
+    {
+      "design_id": "design_7761f2b2365e4c3d89e3793b78e6e097",
+      "source": "LLM",
+      "origin": "LLM",
+      "phase": null,
+      "reward": 0.5916926799645618,
+      "feasible": true,
+      "simulation_index": 40,
+      "elapsed_s": 614.6475462000817,
+      "simulator_execution_s": 6.6467541004531085,
+      "non_simulator_elapsed_s": 608.0007920996286
+    }
+  ],
+  "thresholds": [
+    {
+      "fom": 0.1,
+      "first_hit": {
+        "design_id": "design_118ca9919281473b97a575ad23ebc9ca",
+        "source": "LLM",
+        "origin": "LLM",
+        "phase": null,
+        "reward": 0.513558963690552,
+        "feasible": true,
+        "simulation_index": 30,
+        "elapsed_s": 479.6033120001666,
+        "simulator_execution_s": 5.161755200475454,
+        "non_simulator_elapsed_s": 474.44155679969117
+      }
+    },
+    {
+      "fom": 0.3,
+      "first_hit": {
+        "design_id": "design_118ca9919281473b97a575ad23ebc9ca",
+        "source": "LLM",
+        "origin": "LLM",
+        "phase": null,
+        "reward": 0.513558963690552,
+        "feasible": true,
+        "simulation_index": 30,
+        "elapsed_s": 479.6033120001666,
+        "simulator_execution_s": 5.161755200475454,
+        "non_simulator_elapsed_s": 474.44155679969117
+      }
+    },
+    {
+      "fom": 0.5,
+      "first_hit": {
+        "design_id": "design_118ca9919281473b97a575ad23ebc9ca",
+        "source": "LLM",
+        "origin": "LLM",
+        "phase": null,
+        "reward": 0.513558963690552,
+        "feasible": true,
+        "simulation_index": 30,
+        "elapsed_s": 479.6033120001666,
+        "simulator_execution_s": 5.161755200475454,
+        "non_simulator_elapsed_s": 474.44155679969117
+      }
+    },
+    {
+      "fom": 0.6,
+      "first_hit": null
+    }
+  ],
+  "timing": {
+    "measured_simulator_execution_s": 8.35116480011493,
+    "total_simulator_execution_s": 8.35116480011493,
+    "td3_non_simulator_batch_s": null,
+    "pure_llm_inference_s": null,
+    "pure_td3_compute_s": null
+  },
+  "warnings": []
+}

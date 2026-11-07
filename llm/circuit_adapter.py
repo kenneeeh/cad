@@ -1,6 +1,8 @@
 """TwoStage-specific metadata/validation around the existing CircuitEnv; no new simulator."""
 import hashlib
+import json
 import math
+import os
 from pathlib import Path
 
 
@@ -20,6 +22,22 @@ class CircuitAdapter:
                                       'F' if name == 'cap' else 'ohm' if name == 'res' else '1')
                                 for name in env.dict_params}
         self.directions = {name: '<=' if name == 'noise' else '>=' for name in env.hard_constraints}
+        files = [self.repo / 'circuit_env.py'] + sorted((self.repo / 'ngspice_interface').rglob('*.py'))
+        files += sorted(p for p in (self.repo / 'ngspice_interface/files').rglob('*')
+                        if p.is_file() and p.suffix in ('.yaml', '.cir', '.sp'))
+        self.measurement_source = hashlib.sha256(b''.join(
+            str(p.relative_to(self.repo)).encode() + p.read_bytes() for p in files)).hexdigest()
+
+    def measurement_setup(self):
+        """Scope reuse to the loaded simulator sources, grids, targets and PVT."""
+        configuration = [self.measurement_source, self.env.pvt_corner, self.env.dict_params,
+                         self.env.dict_targets, os.environ.get('NGSPICE_EXECUTABLE', 'default')]
+        return hashlib.sha256(json.dumps(configuration, sort_keys=True).encode()).hexdigest()
+
+    def parameter_key(self, parameters):
+        self.validate_parameters(parameters)
+        return [round((parameters[name] - low) / step)
+                for name, (low, high, step) in sorted(self.env.dict_params.items())]
 
     def validate_parameters(self, parameters):
         expected = set(self.env.dict_params)

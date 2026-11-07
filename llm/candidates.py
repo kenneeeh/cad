@@ -40,6 +40,16 @@ class CandidateArchive:
                 return record  # JSON loading already gives the caller a fresh dictionary.
         raise ValueError('Unknown design ID in the current setup')
 
+    def find_measured(self, parameter_key, measurement_setup):
+        """Reuse only completed, non-fixture measurements with matching provenance."""
+        for record in self.records():
+            metadata = record['metadata']
+            if (metadata.get('completed') and not metadata.get('fixture')
+                    and metadata.get('measurement_setup') == measurement_setup
+                    and metadata.get('parameter_key') == parameter_key):
+                return record
+        return None
+
     def add(self, parameters, assessment, source, run_id, metadata, parent_id=None, hypothesis='', design_id=None):
         # Callers validate measured data before storing it. Imports retain their original ID.
         metadata = dict(metadata)

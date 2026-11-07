@@ -1,0 +1,49 @@
+{
+  "changed_files": {
+    "llm/candidates.py": {
+      "before_sha256": "ccacc8d278266359e80c01ffaa2572216ec7991ad5661d02007949bff4df3b7d",
+      "after_sha256": "f229d51f744ebcfb4ac919f9cc59c6b1a4e3a5a92f0a140a961f1a1151dbe6f0"
+    },
+    "llm/circuit_adapter.py": {
+      "before_sha256": "cf8e0fccd7eda5f56408e663631acc8812d0471509dfe90f55b8f376b9a2d329",
+      "after_sha256": "10a01804610606c7d965f5fb8f67f1b6eb0fc8371528ea154dbe211357597637"
+    },
+    "llm/mcp_server.py": {
+      "before_sha256": "b84b796e66717b2f5f2fc57d66600a297eda6c1f20c6ed5552712d16e40552fa",
+      "after_sha256": "616d0b5fc9ce540926ef285546ce7b2b9d9108ff4fe18a9b2d0c5b5bc551cde0"
+    },
+    "llm/GEMINI.md": {
+      "before_sha256": "fa5bb6b8499162a8948d2695c29a3b9451579ccd4f0fbfa986a1e72c6098cf38",
+      "after_sha256": "cb66da59804c7b13d51218b5ae9b277812739931584cd6d1b5b9e68be402336e"
+    },
+    "llm/experiment.md": {
+      "before_sha256": "99f86f59e4945e85e67539ffd895e282ebf45496f49a011e00c80a40c5ead05e",
+      "after_sha256": "55d073b248f89dafe4d190aabce7b129d44c27a566877e70ac96ea40537f2a62"
+    },
+    "llm/.agents/agents/coordinator.md": {
+      "before_sha256": "cf666088341371e5707c7bfb43b0b0369787253b8a1b01d8aca11db7f4616cca",
+      "after_sha256": "a62e5d74bbe2667118c9ced470b4a777ad62a183b13ccc8039622eeb9bf02bd5"
+    },
+    "llm/.agents/agents/circuit-sizing-specialist.md": {
+      "before_sha256": "098b14d7ce73298e4bc43c504643b94aa556a618e9b4c05c1cba5df23113a839",
+      "after_sha256": "e7eea8c7627d9d600f7928cc20e315b4d7e4654861117a403d1265c1a96a9492"
+    },
+    "llm/.agents/skills/opamp-physics/SKILL.md": {
+      "before_sha256": "e79e460d05e0e7e70b97553ad7bd33da079dc8ab7539c9a9231b29c4790fb48d",
+      "after_sha256": "0753498faafba9708f0f0d2b7794d9ffd3aa38e470beb3ad12ab29f1d50f2bca"
+    },
+    "llm/.agents/skills/sizing-experiments/SKILL.md": {
+      "before_sha256": "0396cf203252b5d113848e4d9c7e81d65f4391234d3b5481a9b0b02841f0c17e",
+      "after_sha256": "971a11320680301f7a09af17be158c6e1f8d4978e5fc42cdeedd2dbd306661b4"
+    },
+    "codex_tests/test_mcp_server.py": {
+      "before_sha256": "3f83e1122220158f5ce48d70617fb1e17691423d564e769b260c48cc174e6193",
+      "after_sha256": "116ad3b5defab2c3715b4266d4b8333aa4ef9b2c8b2af5276215e5c27fe1890b"
+    },
+    "codex_tests/test_candidate_reuse.py": {
+      "before_sha256": null,
+      "after_sha256": "166f14e268844bf563de3620ff4f78eea0844729e4683e1ae424f5fbee4c0e03"
+    }
+  },
+  "protected_unchanged": true
+}

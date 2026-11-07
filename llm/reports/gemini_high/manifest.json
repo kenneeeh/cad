@@ -1,0 +1,231 @@
+{
+  "model": "gemini-3.8-flash-high",
+  "strategy": "llm_only",
+  "source_revision": "d467f614447780de950760b48af2b1a733c3a213",
+  "launch_arguments": [
+    "--model",
+    "gemini-3.8-flash-high",
+    "--llm-only",
+    "--llm-evaluations",
+    "50",
+    "--budget",
+    "50"
+  ],
+  "python_executable": "<user-profile>\\Documents\\CADproject\\cad-git\\.venv\\Scripts\\python.exe",
+  "runtime_environment": {
+    "OMP_NUM_THREADS": null,
+    "MKL_NUM_THREADS": null,
+    "MPLBACKEND": null,
+    "NGSPICE_EXECUTABLE": null
+  },
+  "td3_settings": null,
+  "initial_design": {
+    "mp1": 8.0,
+    "wp1": 1.5e-06,
+    "lp1": 1.35e-07,
+    "mn1": 15.0,
+    "wn1": 1.75e-06,
+    "ln1": 1.35e-07,
+    "mp3": 18.0,
+    "wp3": 2e-06,
+    "lp3": 1.35e-07,
+    "mn3": 15.0,
+    "wn3": 1.25e-06,
+    "ln3": 9e-08,
+    "mn4": 13.0,
+    "wn4": 1.5e-06,
+    "ln4": 9e-08,
+    "mn5": 17.0,
+    "wn5": 5e-07,
+    "ln5": 4.5e-08,
+    "cap": 3.5e-12,
+    "res": 6000.0
+  },
+  "targets_and_grids": {
+    "circuit_name": "TwoStage",
+    "technology": "45nm",
+    "params": {
+      "mp1": [
+        1,
+        25,
+        1
+      ],
+      "wp1": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "lp1": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "mn1": [
+        1,
+        25,
+        1
+      ],
+      "wn1": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "ln1": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "mp3": [
+        1,
+        25,
+        1
+      ],
+      "wp3": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "lp3": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "mn3": [
+        1,
+        25,
+        1
+      ],
+      "wn3": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "ln3": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "mn4": [
+        1,
+        25,
+        1
+      ],
+      "wn4": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "ln4": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "mn5": [
+        1,
+        25,
+        1
+      ],
+      "wn5": [
+        2.5e-07,
+        3e-06,
+        2.5e-07
+      ],
+      "ln5": [
+        4.5e-08,
+        2.25e-07,
+        4.5e-08
+      ],
+      "cap": [
+        1e-13,
+        1e-11,
+        1e-13
+      ],
+      "res": [
+        0.0,
+        9900.0,
+        100.0
+      ]
+    },
+    "targets": {
+      "area": 2e-09,
+      "current": 0.0002,
+      "gain": 200.0,
+      "noise": 0.03,
+      "phm": 60.0,
+      "slewRate": 30.0,
+      "ugbw": 100000000.0
+    },
+    "hard_constraints": [
+      "gain",
+      "noise",
+      "phm",
+      "slewRate",
+      "ugbw"
+    ],
+    "optimization_targets": [
+      "area",
+      "current"
+    ],
+    "spec_weights": {
+      "area": 1.0,
+      "current": 1.0,
+      "gain": 1.0,
+      "noise": 1.0,
+      "phm": 1.0,
+      "slewRate": 1.0,
+      "ugbw": 1.0
+    },
+    "circuit_multipliers": {
+      "mn1": 2,
+      "mp1": 2,
+      "mp3": 1,
+      "mn3": 1,
+      "mn4": 1,
+      "mn5": 1,
+      "cap": 1,
+      "res": 1
+    }
+  },
+  "budget": 50,
+  "plan": [
+    {
+      "tool": "llm",
+      "steps": 50
+    }
+  ],
+  "planned_attempts_max": 50,
+  "episode_horizon": 10,
+  "sha256": {
+    "circuit_env.py": "b6204682f0fe896aba143c5b295c4b03274e6fdd5bc9ce0e09e9604f12a29a39",
+    "td3\\agent.py": "4b9d75710226d3f347dbb9cb87b43cc8ed07a4e4bf815427c1ee8874dcb6576e",
+    "td3\\buffer.py": "73433cbde15918c9302a147d81220d23551bfbdc4219a8bd3174767ea95125ce",
+    "ngspice_interface\\dut_testbench.py": "1cd8af26ac8cf58f5ee0e4e8fba06026bc35996e5c17d4893e684184c5d929fb",
+    "ngspice_interface\\ngspice_wrapper.py": "8bbead1ccdd1aa35920a855079a068dc01a546761b21be929c9801f12028bd36",
+    "ngspice_interface\\files\\yaml_files\\TwoStage.yaml": "b1f1eb12751daac5c5f3cd8daec49c83e9936b999715eb64f730b1818bdfb44a",
+    "requirements-lock.txt": "24574cbcb674153c516e981dfccf03a981813c397adc6b6dfaa28b0ad2a06902",
+    "llm\\.agents\\agents\\circuit-sizing-specialist.md": "e7eea8c7627d9d600f7928cc20e315b4d7e4654861117a403d1265c1a96a9492",
+    "llm\\.agents\\agents\\coordinator.md": "a62e5d74bbe2667118c9ced470b4a777ad62a183b13ccc8039622eeb9bf02bd5",
+    "llm\\.agents\\skills\\opamp-physics\\SKILL.md": "0753498faafba9708f0f0d2b7794d9ffd3aa38e470beb3ad12ab29f1d50f2bca",
+    "llm\\.agents\\skills\\sizing-experiments\\SKILL.md": "971a11320680301f7a09af17be158c6e1f8d4978e5fc42cdeedd2dbd306661b4",
+    "llm\\.agents\\mcp_config.json": "8a767805574aa1d5e5c5497976202457727a3a59ae1ec116216cf42e97a36536",
+    "llm\\.agents\\settings.json": "e739181a4f4cb717191017fd446ecaafdc289977d5e8ce398ec617dfa9e14f78",
+    "llm\\GEMINI.md": "cb66da59804c7b13d51218b5ae9b277812739931584cd6d1b5b9e68be402336e",
+    "llm\\experiment.md": "55d073b248f89dafe4d190aabce7b129d44c27a566877e70ac96ea40537f2a62",
+    "llm\\initial_design.json": "d3164678109054ac15b22b721e7f2de49f18ac6e3654fbf82c0fe07d6a875fbd",
+    "llm\\run_experiment.py": "d5919cfe51b69a87ec388df6db97c19ec56ef173c2a315c63cacfdcac75e8883",
+    "llm\\mcp_server.py": "616d0b5fc9ce540926ef285546ce7b2b9d9108ff4fe18a9b2d0c5b5bc551cde0",
+    "llm\\td3_session.py": "eb30c14b418d7e696318070fd7364ea0d9ae598fb7b84eb1396aacfe37fa4879",
+    "llm\\td3_candidates.py": "ae7df7a107810371eb2f05be60e8f4811e559554143d5fc24401cc73da623f78",
+    "llm\\candidates.py": "f229d51f744ebcfb4ac919f9cc59c6b1a4e3a5a92f0a140a961f1a1151dbe6f0",
+    "llm\\circuit_adapter.py": "10a01804610606c7d965f5fb8f67f1b6eb0fc8371528ea154dbe211357597637",
+    "llm\\replay_injection.py": "620e9c29a99739b9818fa821bb968583688ffb807a58ed1057a55df61cb277e5",
+    "llm\\efficiency.py": "4688f556439891901b1888ecfe613c484dc82c9bd6e7a3e80e809ac31b8a5c45",
+    "td3_runner.py": "99569ef499f19bd0d11ecd8160739cd26201bd6f27cb96d128942ed0b9390a5f",
+    "ngspice_interface\\files\\input_netlists\\TwoStage.cir": "8a0a5c26691eb6fa25b924577c3ddf3471e04335f6de15ceb871d50d9f271777",
+    "ngspice_interface\\files\\spice_models\\p045_FF.sp": "da3eb0b152e4cc54f168d56647b34c8d0d6b81484080ebbef6946fa7aace72df",
+    "ngspice_interface\\files\\spice_models\\p045_SS.sp": "d14c08020a6c25c391f94a142ab7d4faa2bc7332f835fdb9e4d6bee993981434",
+    "ngspice_interface\\files\\spice_models\\p045_TT.sp": "10495a43002dcc3e34eaa33d092fe9d9bd0322c2008ac32865a2e48f602ec48c"
+  },
+  "monotonic_start": 1557258.5398497,
+  "utc_start": "2026-11-07T11:11:02.980867+00:00"
+}

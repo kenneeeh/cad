@@ -1,0 +1,23 @@
+{
+  "changed_files": [
+    "llm/candidates.py",
+    "llm/circuit_adapter.py",
+    "llm/mcp_server.py",
+    "llm/GEMINI.md",
+    "llm/experiment.md",
+    "llm/.agents/agents/coordinator.md",
+    "llm/.agents/agents/circuit-sizing-specialist.md",
+    "llm/.agents/skills/opamp-physics/SKILL.md",
+    "llm/.agents/skills/sizing-experiments/SKILL.md",
+    "codex_tests/test_mcp_server.py",
+    "codex_tests/test_candidate_reuse.py"
+  ],
+  "protected_unchanged": true,
+  "initial_design_matches_claude": true,
+  "targets_grids_match_claude": true,
+  "model": "gemini-3.8-flash-high",
+  "model_supported": true,
+  "tests": "49 run, 48 passed, 1 skipped",
+  "budget": 50,
+  "td3_enabled": false
+}

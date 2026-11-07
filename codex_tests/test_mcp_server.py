@@ -101,7 +101,7 @@ class TestSimulatorTool(unittest.TestCase):
             failed = server.evaluate_candidate(base['design_id'], {'res': 6100.})
             self.assertFalse(failed['success'])
             self.assertEqual(failed['simulation_count'], 2)
-            self.assertIn('budget', server.simulate_design(PARAMETERS)['error'])
+            self.assertTrue(server.simulate_design(PARAMETERS)['cached'])
             self.assertIn('budget', server.evaluate_candidate(base['design_id'], {'res': 6200.})['error'])
             self.assertEqual(self.engine.call_count, 2)
             self.assertEqual(len(self.archive.records()), 1)
@@ -124,14 +124,15 @@ class TestSimulatorTool(unittest.TestCase):
         self.measure.return_value = dict(server.env.dict_targets, gain=190.)
         server.simulate_design(PARAMETERS)
         self.measure.return_value = dict(server.env.dict_targets)
-        best = server.simulate_design(PARAMETERS)
-        server.simulate_design(dict(PARAMETERS, res=6100.))
+        best = server.simulate_design(dict(PARAMETERS, res=6100.))
+        server.simulate_design(dict(PARAMETERS, res=6200.))
+        server.simulate_design(dict(PARAMETERS, res=6200.))  # Reuse, no extra archive row.
         ranked = server.get_candidates()['candidates']
-        self.assertEqual(len(ranked), 2)
+        self.assertEqual(len(ranked), 3)
         self.assertNotIn('parameters', ranked[0])
         reloaded = CandidateArchive(self.archive.path, self.archive.problem_id)
         self.assertEqual(len(reloaded.records()), 3)
-        self.assertEqual(reloaded.get(best['design_id'])['parameters'], PARAMETERS)
+        self.assertEqual(reloaded.get(best['design_id'])['parameters'], dict(PARAMETERS, res=6100.))
         self.assertEqual(ranked[0]['reward'], .3)
 
     def test_nonfinite_measurements_and_zero_fallback(self):
