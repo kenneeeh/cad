@@ -1,0 +1,215 @@
+{
+  "attempts": 50,
+  "indices": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50
+  ],
+  "attempt_returncodes": {
+    "0": 50
+  },
+  "tool_counts": {
+    "get_problem": 1,
+    "simulate_design": 1,
+    "get_candidates": 5,
+    "evaluate_candidate": 50,
+    "probe_parameters": 12
+  },
+  "failed_or_rejected_calls": [
+    {
+      "event": "tool_call",
+      "tool": "evaluate_candidate",
+      "arguments": {
+        "base_design_id": "design_c2008a2e4d1e4268a8b861ef9276b2d2",
+        "changes": {
+          "mn1": 12.0
+        },
+        "hypothesis": "From mp1=7 base (UGBW=107.8M, 7.8% margin). mp3=15 to reduce 2nd-stage current; mn1=12 to reduce load; cap=1.1pF for more PHM margin. Each trades UGBW for current/PHM improvement."
+      },
+      "ngspice_attempts": 0,
+      "tool_runtime_s": 0.020437699975445867,
+      "simulator_execution_s": 0.0,
+      "elapsed_s": 353.6724606999196,
+      "result": {
+        "success": false,
+        "error": "changes do not change the base design",
+        "simulation_count": 40
+      }
+    },
+    {
+      "event": "tool_call",
+      "tool": "probe_parameters",
+      "arguments": {
+        "base_design_id": "design_c2008a2e4d1e4268a8b861ef9276b2d2",
+        "changes_list": [
+          {
+            "mp3": 15.0
+          },
+          {
+            "mn1": 12.0
+          },
+          {
+            "cap": 1.1e-12
+          }
+        ],
+        "hypothesis": "From mp1=7 base (UGBW=107.8M, 7.8% margin). mp3=15 to reduce 2nd-stage current; mn1=12 to reduce load; cap=1.1pF for more PHM margin. Each trades UGBW for current/PHM improvement."
+      },
+      "ngspice_attempts": 2,
+      "tool_runtime_s": 0.6043473000172526,
+      "simulator_execution_s": 0.4655353999696672,
+      "elapsed_s": 353.8995236000046,
+      "result": {
+        "success": false,
+        "probes": [
+          {
+            "success": true,
+            "design_id": "design_106acc1dd21640fea2a089233a023a71",
+            "specs": {
+              "area": 8.402355119047619e-10,
+              "current": 0.0002608351,
+              "gain": 278.5976700009793,
+              "noise": 0.0057623727,
+              "phm": 65.85097151981985,
+              "slewRate": 46.84074720216418,
+              "ugbw": 102325494.1233073
+            },
+            "reward": 0.5763233548756528,
+            "hard_satisfied": true,
+            "violated_constraints": [],
+            "simulation_count": 40,
+            "remaining": 10,
+            "simulation_id": "TwoStage_1794047986_yojjoxrshc",
+            "runtime_s": 0.3168,
+            "parent_id": "design_c2008a2e4d1e4268a8b861ef9276b2d2",
+            "changes": {
+              "mp3": {
+                "from": 16.0,
+                "to": 15.0
+              }
+            }
+          },
+          {
+            "success": false,
+            "error": "changes do not change the base design",
+            "simulation_count": 40
+          },
+          {
+            "success": true,
+            "design_id": "design_c2dc5cbb756f432c8fbdabbce8160a13",
+            "specs": {
+              "area": 8.744923452380952e-10,
+              "current": 0.00026951941,
+              "gain": 282.06891000119884,
+              "noise": 0.005791915,
+              "phm": 65.61050255646407,
+              "slewRate": 45.12330360086532,
+              "ugbw": 108033778.4755558
+            },
+            "reward": 0.5434850220442313,
+            "hard_satisfied": true,
+            "violated_constraints": [],
+            "simulation_count": 41,
+            "remaining": 9,
+            "simulation_id": "TwoStage_1794047987_skrhljxsdk",
+            "runtime_s": 0.1997,
+            "parent_id": "design_c2008a2e4d1e4268a8b861ef9276b2d2",
+            "changes": {
+              "cap": {
+                "from": 1e-12,
+                "to": 1.1e-12
+              }
+            }
+          }
+        ],
+        "simulation_count": 41,
+        "remaining": 9
+      }
+    }
+  ],
+  "duplicates": [
+    {
+      "first": "design_bacbfff79fea43b4b06ba3849b0860e7",
+      "repeat": "design_182a02c885cf42c08ed7b338aad40f19",
+      "simulation": 50
+    }
+  ],
+  "manifest_files_unchanged": {
+    "circuit_env.py": true,
+    "td3\\agent.py": true,
+    "td3\\buffer.py": true,
+    "ngspice_interface\\dut_testbench.py": true,
+    "ngspice_interface\\ngspice_wrapper.py": true,
+    "ngspice_interface\\files\\yaml_files\\TwoStage.yaml": true,
+    "requirements-lock.txt": true,
+    "llm\\.agents\\agents\\circuit-sizing-specialist.md": true,
+    "llm\\.agents\\agents\\coordinator.md": true,
+    "llm\\.agents\\skills\\opamp-physics\\SKILL.md": true,
+    "llm\\.agents\\skills\\sizing-experiments\\SKILL.md": true,
+    "llm\\.agents\\mcp_config.json": true,
+    "llm\\.agents\\settings.json": true,
+    "llm\\GEMINI.md": true,
+    "llm\\experiment.md": true,
+    "llm\\initial_design.json": true,
+    "llm\\run_experiment.py": true,
+    "llm\\mcp_server.py": true,
+    "llm\\td3_session.py": true,
+    "llm\\td3_candidates.py": true,
+    "llm\\candidates.py": true,
+    "llm\\circuit_adapter.py": true,
+    "llm\\replay_injection.py": true,
+    "llm\\efficiency.py": true,
+    "td3_runner.py": true,
+    "ngspice_interface\\files\\input_netlists\\TwoStage.cir": true,
+    "ngspice_interface\\files\\spice_models\\p045_FF.sp": true,
+    "ngspice_interface\\files\\spice_models\\p045_SS.sp": true,
+    "ngspice_interface\\files\\spice_models\\p045_TT.sp": true
+  },
+  "feasible_count": 20
+}

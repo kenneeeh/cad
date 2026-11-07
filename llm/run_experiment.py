@@ -231,6 +231,7 @@ def cli_result(stdout, run):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--model', default=MODEL, help='Exact Antigravity model identifier (both native roles inherit it)')
     parser.add_argument('--llm-only', action='store_true', help='Disable TD3; retain ordinary LLM evaluation')
     parser.add_argument('--strategy', choices=STRATEGIES, default='interleaved')
     parser.add_argument('--budget', type=int, default=2400)
@@ -338,7 +339,7 @@ def main():
     git_head = (repo / '.git/HEAD').read_text().strip()
     revision_file = repo / '.git' / git_head[5:] if git_head.startswith('ref: ') else None
     revision = revision_file.read_text().strip() if revision_file and revision_file.exists() else git_head if not revision_file else None
-    manifest = {'model': MODEL, 'strategy': args.strategy if not args.llm_only else 'llm_only',
+    manifest = {'model': args.model, 'strategy': args.strategy if not args.llm_only else 'llm_only',
                 'source_revision': revision,
                 'launch_arguments': sys.argv[1:], 'python_executable': sys.executable,
                 'runtime_environment': {name: os.environ.get(name) for name in
@@ -353,7 +354,7 @@ def main():
     if settings:
         (run / 'td3_config.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
     command = [str(AGY), '--settings', str(HERE / '.agents/settings.json'), '--agent', 'coordinator',
-               '--model', MODEL, '--output-format', 'stream-json', '--print-timeout', '15m', '-p', prompt]
+               '--model', args.model, '--output-format', 'stream-json', '--print-timeout', '15m', '-p', prompt]
     if args.strategy == 'adaptive':
         command[command.index('-p'):command.index('-p')] = ['--json-schema', json.dumps(ADAPTIVE_SCHEMA)]
     environment = {**os.environ, 'CAD_MAX_SIMULATIONS': str(args.budget), 'CAD_RUN_ID': run.name,
@@ -393,7 +394,7 @@ def main():
     best = max(candidates, key=lambda r: r['reward'], default=None)
     success = (exit_code == 0 and response.get('status') == 'SUCCESS' and attempts <= args.budget
                and best is not None and protocol['complete'])
-    summary = {'success': success, 'mode': mode, 'model': MODEL, 'archive': str(archive.path),
+    summary = {'success': success, 'mode': mode, 'model': args.model, 'archive': str(archive.path),
                'incomplete': not protocol['complete'], 'protocol': protocol,
                'stop_reason': 'execution_error' if exit_code != 0 or response.get('status') != 'SUCCESS' or protocol['errors'] else
                               protocol['adaptive_final']['stop_reason'] if args.strategy == 'adaptive' and protocol['complete'] else

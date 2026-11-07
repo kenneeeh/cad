@@ -1,0 +1,60 @@
+{
+  "design_id": "design_9042f29b8f9d48618c92140637aeed9a",
+  "problem_id": "TwoStage-rising-b1f1eb12751d",
+  "source": "LLM",
+  "run_id": "llm_only_9c1ype44",
+  "parameters": {
+    "cap": 1e-12,
+    "ln1": 1.35e-07,
+    "ln3": 9e-08,
+    "ln4": 9e-08,
+    "ln5": 4.5e-08,
+    "lp1": 1.35e-07,
+    "lp3": 1.35e-07,
+    "mn1": 15.0,
+    "mn3": 15.0,
+    "mn4": 25.0,
+    "mn5": 17.0,
+    "mp1": 8.0,
+    "mp3": 18.0,
+    "res": 6000.0,
+    "wn1": 1.75e-06,
+    "wn3": 1.25e-06,
+    "wn4": 2.5e-06,
+    "wn5": 5e-07,
+    "wp1": 1.5e-06,
+    "wp3": 2e-06
+  },
+  "specs": {
+    "area": 8.508077619047619e-10,
+    "current": 0.00027271837,
+    "gain": 260.57182000078654,
+    "noise": 0.0048916258,
+    "phm": 61.76208369273651,
+    "slewRate": 45.04160727671572,
+    "ugbw": 113847395.3390819
+  },
+  "units": {
+    "area": "m^2",
+    "current": "A",
+    "gain": "V/V",
+    "noise": "V RMS",
+    "phm": "deg",
+    "slewRate": "V/us",
+    "ugbw": "Hz"
+  },
+  "reward": 0.5492808766544028,
+  "hard_satisfied": true,
+  "violated_constraints": [],
+  "metadata": {
+    "completed": true,
+    "simulator": "ngspice",
+    "simulation_id": "TwoStage_1794047822_gkfblqbuuj",
+    "simulation_count": 18,
+    "elapsed_s": 189.61707570008002,
+    "cumulative_simulation_count": 18,
+    "origin": "LLM"
+  },
+  "parent_id": "design_43e903f2e891422b9d3ab8e6da45b7ba",
+  "hypothesis": "From mn4=25 base (UGBW=57.1M, PHM=69.8\u00b0). Cap\u21920.7pF/0.5pF to trade PHM for UGBW; wn4\u21922\u00b5m/2.5\u00b5m to boost tail current; res\u21924k\u03a9 to shift RHP zero."
+}

@@ -1,0 +1,60 @@
+{
+  "design_id": "design_267b826c23e34353b23607dfb2e051a5",
+  "problem_id": "TwoStage-rising-b1f1eb12751d",
+  "source": "LLM",
+  "run_id": "llm_only_9c1ype44",
+  "parameters": {
+    "cap": 1e-12,
+    "ln1": 1.35e-07,
+    "ln3": 9e-08,
+    "ln4": 9e-08,
+    "ln5": 4.5e-08,
+    "lp1": 1.35e-07,
+    "lp3": 1.35e-07,
+    "mn1": 12.0,
+    "mn3": 15.0,
+    "mn4": 25.0,
+    "mn5": 17.0,
+    "mp1": 8.0,
+    "mp3": 16.0,
+    "res": 6000.0,
+    "wn1": 1.75e-06,
+    "wn3": 1.25e-06,
+    "wn4": 2.5e-06,
+    "wn5": 2.5e-07,
+    "wp1": 1.5e-06,
+    "wp3": 2e-06
+  },
+  "specs": {
+    "area": 8.425510119047618e-10,
+    "current": 0.00025232606,
+    "gain": 285.84710000104775,
+    "noise": 0.0058496409,
+    "phm": 64.9666806123915,
+    "slewRate": 47.29779823783112,
+    "ugbw": 100211122.16776088
+  },
+  "units": {
+    "area": "m^2",
+    "current": "A",
+    "gain": "V/V",
+    "noise": "V RMS",
+    "phm": "deg",
+    "slewRate": "V/us",
+    "ugbw": "Hz"
+  },
+  "reward": 0.5915045381032986,
+  "hard_satisfied": true,
+  "violated_constraints": [],
+  "metadata": {
+    "completed": true,
+    "simulator": "ngspice",
+    "simulation_id": "TwoStage_1794047941_vnqtblsqhe",
+    "simulation_count": 33,
+    "elapsed_s": 308.30018740007654,
+    "cumulative_simulation_count": 33,
+    "origin": "LLM"
+  },
+  "parent_id": "design_1e4690bde5bf497cb3c28a7b9f62de42",
+  "hypothesis": "Combine two beneficial changes: wn5=250nm (reward +0.587) and mn1=12 (reward +0.584) on mp3=16 base. Both reduced current and improved reward independently."
+}
