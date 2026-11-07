@@ -1,0 +1,316 @@
+{
+  "intended_sources_unchanged": true,
+  "reference_files_unchanged": true,
+  "correct_runtime_protocol": true,
+  "fresh_td3_at_start": true,
+  "actual_attempts": 138,
+  "attempt_returncodes": {
+    "0": 138
+  },
+  "reset_measurements": 3,
+  "candidate_counts_by_phase": {
+    "LLM": 105,
+    "warmup": 30
+  },
+  "feasible_candidate_count": 41,
+  "critic_updates": 0,
+  "actor_updates": 0,
+  "tool_counts": {
+    "get_problem": 1,
+    "simulate_design": 1,
+    "get_candidates": 4,
+    "evaluate_candidate": 105,
+    "probe_parameters": 26,
+    "warmup": 1
+  },
+  "native_tool_counts": {
+    "call_mcp_tool": 33,
+    "invoke_subagent": 1,
+    "send_message": 2
+  },
+  "coordinator_response_steps": 37,
+  "failed_or_rejected_calls": [
+    {
+      "event": "tool_call",
+      "tool": "evaluate_candidate",
+      "arguments": {
+        "base_design_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+        "changes": {
+          "wn1": 7e-07
+        },
+        "hypothesis": "final_refinement: probe res=2600, mp1=9, mn1=24, and wn1=700nm on best feasible base (reward=0.427)"
+      },
+      "ngspice_attempts": 0,
+      "tool_runtime_s": 0.04722449998371303,
+      "simulator_execution_s": 0.0,
+      "elapsed_s": 309.6812002998777,
+      "result": {
+        "success": false,
+        "error": "wn1 must equal 2.5e-07 + k*2.5e-07 for integer k",
+        "simulation_count": 90,
+        "parent_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+        "changes": {
+          "wn1": {
+            "from": 7.5e-07,
+            "to": 7e-07
+          }
+        },
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 73,
+          "train_remaining": 120
+        }
+      }
+    },
+    {
+      "event": "tool_call",
+      "tool": "probe_parameters",
+      "arguments": {
+        "base_design_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+        "changes_list": [
+          {
+            "res": 2600.0
+          },
+          {
+            "mp1": 9.0
+          },
+          {
+            "mn1": 24.0
+          },
+          {
+            "wn1": 7e-07
+          }
+        ],
+        "hypothesis": "final_refinement: probe res=2600, mp1=9, mn1=24, and wn1=700nm on best feasible base (reward=0.427)"
+      },
+      "ngspice_attempts": 3,
+      "tool_runtime_s": 2.0687458999454975,
+      "simulator_execution_s": 1.4826970000285655,
+      "elapsed_s": 309.6944236999843,
+      "result": {
+        "success": false,
+        "probes": [
+          {
+            "success": true,
+            "design_id": "design_97a5bf6a3f1640449c4e96fbaf3ffe97",
+            "specs": {
+              "area": 5.96853619047619e-10,
+              "current": 0.00047676567,
+              "gain": 556.1686500013219,
+              "noise": 0.011897191,
+              "phm": 60.26457204879097,
+              "slewRate": 72.31677834696742,
+              "ugbw": 129071166.3512902
+            },
+            "reward": 0.43137208678022076,
+            "hard_satisfied": true,
+            "violated_constraints": [],
+            "replay": {
+              "injected": 0,
+              "deferred": 25
+            },
+            "simulation_count": 88,
+            "remaining": 212,
+            "simulation_id": "TwoStage_1794055186_gnyzujmoso",
+            "runtime_s": 0.6392,
+            "parent_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+            "changes": {
+              "res": {
+                "from": 2700.0,
+                "to": 2600.0
+              }
+            },
+            "adaptive_resources": {
+              "tool": "llm_led",
+              "llm_limit": 130,
+              "train_limit": 120,
+              "warmup_remaining": 0,
+              "llm_remaining": 75,
+              "train_remaining": 120
+            }
+          },
+          {
+            "success": true,
+            "design_id": "design_cf409d255b864278a14741e900b43b95",
+            "specs": {
+              "area": 6.012104761904761e-10,
+              "current": 0.00047787914,
+              "gain": 203.15346000009725,
+              "noise": 0.00457816,
+              "phm": 61.991047143938474,
+              "slewRate": 72.65928423677316,
+              "ugbw": 114953982.79030794
+            },
+            "reward": 0.4278213017955716,
+            "hard_satisfied": true,
+            "violated_constraints": [],
+            "replay": {
+              "injected": 0,
+              "deferred": 26
+            },
+            "simulation_count": 89,
+            "remaining": 211,
+            "simulation_id": "TwoStage_1794055187_fjugucigym",
+            "runtime_s": 0.5687,
+            "parent_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+            "changes": {
+              "mp1": {
+                "from": 10.0,
+                "to": 9.0
+              }
+            },
+            "adaptive_resources": {
+              "tool": "llm_led",
+              "llm_limit": 130,
+              "train_limit": 120,
+              "warmup_remaining": 0,
+              "llm_remaining": 74,
+              "train_remaining": 120
+            }
+          },
+          {
+            "success": true,
+            "design_id": "design_daa6ba0b7afa4666b01bead81a571843",
+            "specs": {
+              "area": 6.032869761904761e-10,
+              "current": 0.00047647967,
+              "gain": 563.5597400013859,
+              "noise": 0.012313602,
+              "phm": 61.039224316201,
+              "slewRate": 72.22050208229312,
+              "ugbw": 132205754.17206126
+            },
+            "reward": 0.42781544743026634,
+            "hard_satisfied": true,
+            "violated_constraints": [],
+            "replay": {
+              "injected": 0,
+              "deferred": 27
+            },
+            "simulation_count": 90,
+            "remaining": 210,
+            "simulation_id": "TwoStage_1794055188_eyfsdiqcvh",
+            "runtime_s": 0.5147,
+            "parent_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+            "changes": {
+              "mn1": {
+                "from": 25.0,
+                "to": 24.0
+              }
+            },
+            "adaptive_resources": {
+              "tool": "llm_led",
+              "llm_limit": 130,
+              "train_limit": 120,
+              "warmup_remaining": 0,
+              "llm_remaining": 73,
+              "train_remaining": 120
+            }
+          },
+          {
+            "success": false,
+            "error": "wn1 must equal 2.5e-07 + k*2.5e-07 for integer k",
+            "simulation_count": 90,
+            "parent_id": "design_401ba29b7f5e4d73aeffaa3978c444ab",
+            "changes": {
+              "wn1": {
+                "from": 7.5e-07,
+                "to": 7e-07
+              }
+            },
+            "adaptive_resources": {
+              "tool": "llm_led",
+              "llm_limit": 130,
+              "train_limit": 120,
+              "warmup_remaining": 0,
+              "llm_remaining": 73,
+              "train_remaining": 120
+            }
+          }
+        ],
+        "simulation_count": 90,
+        "remaining": 210,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 73,
+          "train_remaining": 120
+        }
+      }
+    }
+  ],
+  "repeated_parameter_vectors": [],
+  "best_parent": {
+    "design_id": "design_c97cd0f390214ff3bad49b13c3b4f5fd",
+    "problem_id": "TwoStage-rising-b1f1eb12751d",
+    "source": "LLM",
+    "run_id": "hybrid_66lc7o6_",
+    "parameters": {
+      "mp1": 9.0,
+      "wp1": 2.75e-06,
+      "lp1": 1.8e-07,
+      "mn1": 15.0,
+      "wn1": 5e-07,
+      "ln1": 1.35e-07,
+      "mp3": 10.0,
+      "wp3": 2e-06,
+      "lp3": 9e-08,
+      "mn3": 3.0,
+      "wn3": 1.4999999999999998e-06,
+      "ln3": 1.8e-07,
+      "mn4": 9.0,
+      "wn4": 3e-06,
+      "ln4": 1.35e-07,
+      "mn5": 8.0,
+      "wn5": 2.5e-06,
+      "ln5": 1.35e-07,
+      "cap": 1e-12,
+      "res": 2500.0
+    },
+    "specs": {
+      "area": 5.764172619047619e-10,
+      "current": 0.0004648832,
+      "gain": 282.79872000031355,
+      "noise": 0.01060736,
+      "phm": 60.8043742089082,
+      "slewRate": 66.99347176047849,
+      "ugbw": 100884830.00864084
+    },
+    "units": {
+      "area": "m^2",
+      "current": "A",
+      "gain": "V/V",
+      "noise": "V RMS",
+      "phm": "deg",
+      "slewRate": "V/us",
+      "ugbw": "Hz"
+    },
+    "reward": 0.4541529747282966,
+    "hard_satisfied": true,
+    "violated_constraints": [],
+    "metadata": {
+      "completed": true,
+      "simulator": "ngspice",
+      "simulation_id": "TwoStage_1794055608_rdpknupvmb",
+      "simulation_count": 123,
+      "elapsed_s": 729.4477039999329,
+      "cumulative_simulation_count": 123,
+      "origin": "LLM"
+    },
+    "parent_id": "design_c2c22e4bb8724bc8ac38b13e50b5df2a",
+    "hypothesis": "final_refinement: probe mn1=15, mp1=8, mn3=4, and wn3=1.75um on reward=0.4523 base"
+  },
+  "best_changes_from_parent": {
+    "wn4": {
+      "from": 3e-06,
+      "to": 2.75e-06
+    }
+  },
+  "aborted_attempt_cost_excluded_from_comparison": 33,
+  "total_spent_attempts_including_aborted_attempt": 171
+}

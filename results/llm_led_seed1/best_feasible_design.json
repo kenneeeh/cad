@@ -1,0 +1,60 @@
+{
+  "design_id": "design_c132717b292d4b14a3e5e7c7d0ea1e6d",
+  "problem_id": "TwoStage-rising-b1f1eb12751d",
+  "source": "LLM",
+  "run_id": "hybrid_66lc7o6_",
+  "parameters": {
+    "mp1": 9.0,
+    "wp1": 2.75e-06,
+    "lp1": 1.8e-07,
+    "mn1": 15.0,
+    "wn1": 5e-07,
+    "ln1": 1.35e-07,
+    "mp3": 10.0,
+    "wp3": 2e-06,
+    "lp3": 9e-08,
+    "mn3": 3.0,
+    "wn3": 1.4999999999999998e-06,
+    "ln3": 1.8e-07,
+    "mn4": 9.0,
+    "wn4": 2.75e-06,
+    "ln4": 1.35e-07,
+    "mn5": 8.0,
+    "wn5": 2.5e-06,
+    "ln5": 1.35e-07,
+    "cap": 1e-12,
+    "res": 2500.0
+  },
+  "specs": {
+    "area": 5.753935119047619e-10,
+    "current": 0.0004465289,
+    "gain": 760.874210005078,
+    "noise": 0.027061113,
+    "phm": 60.701310048951996,
+    "slewRate": 65.49168587979177,
+    "ugbw": 106641936.39375883
+  },
+  "units": {
+    "area": "m^2",
+    "current": "A",
+    "gain": "V/V",
+    "noise": "V RMS",
+    "phm": "deg",
+    "slewRate": "V/us",
+    "ugbw": "Hz"
+  },
+  "reward": 0.4718492111853924,
+  "hard_satisfied": true,
+  "violated_constraints": [],
+  "metadata": {
+    "completed": true,
+    "simulator": "ngspice",
+    "simulation_id": "TwoStage_1794055615_mogxbhiwep",
+    "simulation_count": 128,
+    "elapsed_s": 736.6854189999867,
+    "cumulative_simulation_count": 128,
+    "origin": "LLM"
+  },
+  "parent_id": "design_c97cd0f390214ff3bad49b13c3b4f5fd",
+  "hypothesis": "final_refinement: probe mn1=14 boundary, wn4=2.75um, wp3=2.25um, mp1=10 on reward=0.4542 base"
+}

@@ -1,0 +1,63 @@
+{
+  "success": false,
+  "incomplete": true,
+  "status": "aborted_invalid_backend",
+  "comparison_eligible": false,
+  "run_id": "hybrid_wgku3xao",
+  "reason": "Effective Antigravity MCP registration routed to cad-git instead of the validated github-share/cad checkout.",
+  "preflight_limitation": "Original preflight checked the local registration file but not the effective CLI registration. Original preflight evidence is retained.",
+  "actual_ngspice_attempts": 33,
+  "candidate_counts_by_source": {
+    "TD3": 30
+  },
+  "llm_evaluations": 0,
+  "warmup_steps": 30,
+  "reset_attempts": 3,
+  "td3_training_steps": 0,
+  "critic_updates": 0,
+  "feasible_candidates": 1,
+  "best_feasible_fom": 0.11333446684596657,
+  "token_usage": null,
+  "validated_source_files_unchanged": true,
+  "reference_files_unchanged": true,
+  "route_corrected": true,
+  "zero_budget_check": {
+    "correct_validated_llm_led_backend": true,
+    "seed": 1,
+    "initial_llm_evaluation_not_rejected_as_wrong_phase": true,
+    "simulator_budget": 0,
+    "actual_simulator_attempts": 0,
+    "model_calls": 0,
+    "protocol": {
+      "complete": false,
+      "status": "in_progress",
+      "within_resource_ceilings": true,
+      "next_phase": {
+        "tool": "llm_led",
+        "llm_limit": 130,
+        "train_limit": 120,
+        "warmup_remaining": 30,
+        "llm_remaining": 130,
+        "train_remaining": 120
+      },
+      "counts": {
+        "warmup": 0,
+        "llm": 0,
+        "train": 0
+      },
+      "phases": [
+        {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "completed_llm": 0,
+          "completed_train": 0,
+          "complete": false
+        }
+      ],
+      "errors": []
+    }
+  },
+  "replacement_run_started": false,
+  "recorded_after_abort_utc": "2026-11-07T12:33:49.335216+00:00"
+}

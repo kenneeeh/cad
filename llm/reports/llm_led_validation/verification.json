@@ -1,0 +1,354 @@
+{
+  "published_numerical_agreement": {
+    "attempts": true,
+    "critic_updates": true,
+    "best_id": true,
+    "best_fom": true,
+    "first_feasible": true,
+    "phase_counts": true
+  },
+  "protocol_review": {
+    "complete": true,
+    "status": "completed_optimization",
+    "within_resource_ceilings": true,
+    "next_phase": {
+      "tool": "llm_led",
+      "llm_limit": 130,
+      "train_limit": 120,
+      "warmup_remaining": 0,
+      "llm_remaining": 67,
+      "train_remaining": 0
+    },
+    "counts": {
+      "warmup": 30,
+      "llm": 63,
+      "train": 120
+    },
+    "phases": [
+      {
+        "tool": "llm_led",
+        "llm_limit": 130,
+        "train_limit": 120,
+        "completed_llm": 63,
+        "completed_train": 120,
+        "complete": true
+      }
+    ],
+    "errors": [],
+    "stop_reason": "feasible_stagnation",
+    "remaining_resources": {
+      "warmup": 0,
+      "llm": 67,
+      "train": 0
+    },
+    "best_feasible_reward": 0.6837858803353272,
+    "non_improving_candidate_streak": 10,
+    "stagnation_order_verified": true,
+    "stopping_condition_validated": true,
+    "td3_training_used": true
+  },
+  "recorded_td3_reset_measurements": 15,
+  "best_parent": {
+    "design_id": "design_9d2acc1908c346539a251005a95a1409",
+    "problem_id": "TwoStage-rising-960742d9b875",
+    "source": "TD3",
+    "run_id": "../llm/runs/hybrid_dgnup07j/session_svlbcqgw/td3",
+    "parameters": {
+      "mp1": 16.0,
+      "wp1": 1.75e-06,
+      "lp1": 1.35e-07,
+      "mn1": 21.0,
+      "wn1": 1.75e-06,
+      "ln1": 1.35e-07,
+      "mp3": 21.0,
+      "wp3": 2.25e-06,
+      "lp3": 9e-08,
+      "mn3": 10.0,
+      "wn3": 1.4999999999999998e-06,
+      "ln3": 1.35e-07,
+      "mn4": 7.0,
+      "wn4": 2.75e-06,
+      "ln4": 9e-08,
+      "mn5": 19.0,
+      "wn5": 5e-07,
+      "ln5": 4.5e-08,
+      "cap": 7e-13,
+      "res": 5000.0
+    },
+    "specs": {
+      "area": 6.884276904761904e-10,
+      "current": 0.00023022526,
+      "gain": 221.90452000047455,
+      "noise": 0.003676041,
+      "phm": 62.67238292400158,
+      "slewRate": 45.84970249310275,
+      "ugbw": 89110478.288541
+    },
+    "units": {
+      "area": "m^2",
+      "current": "A",
+      "gain": "V/V",
+      "noise": "V RMS",
+      "phm": "deg",
+      "slewRate": "V/us",
+      "ugbw": "Hz"
+    },
+    "reward": -0.0367026572082373,
+    "hard_satisfied": false,
+    "violated_constraints": [
+      "ugbw"
+    ],
+    "metadata": {
+      "completed": true,
+      "simulator": "ngspice",
+      "simulation_id": "TwoStage_1794050467_lxzejpeyhw",
+      "simulation_count": 164,
+      "phase": "policy",
+      "cumulative_simulation_count": 206,
+      "elapsed_s": 632.5445203749987,
+      "origin": "TD3"
+    },
+    "parent_id": null,
+    "hypothesis": ""
+  },
+  "best_changes_from_parent": {
+    "wn4": {
+      "from": 2.75e-06,
+      "to": 3e-06
+    }
+  },
+  "training_batches": [
+    {
+      "arguments": {
+        "n_steps": 30
+      },
+      "ngspice_attempts": 33,
+      "result": {
+        "success": true,
+        "steps": 30,
+        "ngspice_attempts": 33,
+        "critic_updates": 0,
+        "actor_updates": 0,
+        "replay": {
+          "injected": 26,
+          "candidate_ids": [
+            "design_0cceda5248ec4367a896f95b00bc5569",
+            "design_0ab5ada0286d42deb72161cc91114f76",
+            "design_c5b44b7b5db540518f2fe91f95c89149",
+            "design_2e186d542f144b0f98de6a69250a1312",
+            "design_5fddb67aacb244af99e9d91183fc4faf",
+            "design_4ef9a7ec237f46aea7d551e3ba3ae474",
+            "design_0844315c5139478592a2d05f31536a61",
+            "design_26dec052a6b34574be67f1391309972c",
+            "design_4a665f335180483ea8a4bcb35a63a17c",
+            "design_44d92512961a493388621ed57d4b8f93",
+            "design_acce3a0359df47ce97cefddfbc10b15e",
+            "design_9b0abfac939040ab95191f4885f940ab",
+            "design_ad3063dedc024fe1817092d98d888e49",
+            "design_d5f9e90a700e40739a5ae255ab671906",
+            "design_b7bb81385e614ac18116d8748fa65f00",
+            "design_f7d08e1fb0434989b77946c485c3323a",
+            "design_aaf578f6a7a84cd0a5b9ce828977f29d",
+            "design_1966eb2b64fe4ba89576168b7957697c",
+            "design_b2be2ad65d4e4b1d94662fb889fc63c9",
+            "design_61c7703e62024c3a9acc978dd12b8605",
+            "design_d098436468f04a97a66a32e6cb41f4f4",
+            "design_9cfd4548c339423495f2ee634e2a516f",
+            "design_85d04c6ae59541c59f74ece156c8430e",
+            "design_da6b9ef354324f25bad45eb38f341bc5",
+            "design_5a781a88fba740f6b1da4d13c9cff6ee",
+            "design_7a9ec978faaa4fbea8955259b4ed0978"
+          ],
+          "skipped_duplicates": 0,
+          "rejected": [],
+          "buffer_size": 26
+        },
+        "buffer_size": 56,
+        "training_steps_total": 0,
+        "best_design_id": "design_149d39c63a4d4d019170ed92eba0dc25",
+        "simulation_count": 59,
+        "remaining": 241,
+        "runtime_s": 2.9765,
+        "best_reward": -0.9530904398321964,
+        "hard_satisfied": false,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 104,
+          "train_remaining": 120
+        }
+      }
+    },
+    {
+      "arguments": {
+        "n_steps": 30,
+        "reason": "LLM reached stagnation at design_9cfd4548c339423495f2ee634e2a516f (UGBW=63.35MHz, PM=61.93\u00b0, gain=276V/V, current=186.8uA). Probes design_85d04c6ae59541c59f74ece156c8430e (PM=58.5\u00b0), design_da6b9ef354324f25bad45eb38f341bc5 (PM=59.7\u00b0), and design_7a9ec978faaa4fbea8955259b4ed0978 (current=210uA) failed. Training TD3 to resolve coupled UGBW vs PM and current trade-offs."
+      },
+      "ngspice_attempts": 33,
+      "result": {
+        "success": true,
+        "steps": 30,
+        "ngspice_attempts": 33,
+        "critic_updates": 30,
+        "actor_updates": 15,
+        "replay": {
+          "injected": 0,
+          "candidate_ids": [],
+          "skipped_duplicates": 26,
+          "rejected": [],
+          "buffer_size": 56
+        },
+        "buffer_size": 86,
+        "training_steps_total": 30,
+        "best_design_id": "design_308e6401fc504260aecee6730ab6356a",
+        "simulation_count": 92,
+        "remaining": 208,
+        "runtime_s": 2.3538,
+        "best_reward": -1.5768848609647057,
+        "hard_satisfied": false,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 104,
+          "train_remaining": 90
+        }
+      }
+    },
+    {
+      "arguments": {
+        "n_steps": 30,
+        "reason": "LLM stuck on design_32359f9c3e6e4b8e8df04731d677fde6 (PM=61.6\u00b0, UGBW=70.5MHz). Probing cap=6e-13 (design_8cd3d3ccbac843039c9c2b0edc731e3a, PM=55.3\u00b0) and cap=5e-13 (design_ea64550db0b44bec8aeec69a342d1773, PM=50.8\u00b0) failed PM constraint without reaching 100MHz UGBW due to second pole interaction. Training TD3 to navigate multi-parameter trade-offs across stage 1 and stage 2."
+      },
+      "ngspice_attempts": 33,
+      "result": {
+        "success": true,
+        "steps": 30,
+        "ngspice_attempts": 33,
+        "critic_updates": 30,
+        "actor_updates": 15,
+        "replay": {
+          "injected": 8,
+          "candidate_ids": [
+            "design_e7dabe4926ed476f82696570a7592160",
+            "design_27586e812b9843eabdcb500cd2b5ed8c",
+            "design_32359f9c3e6e4b8e8df04731d677fde6",
+            "design_9a95742778c842a6a494a24286170537",
+            "design_8cd3d3ccbac843039c9c2b0edc731e3a",
+            "design_ea64550db0b44bec8aeec69a342d1773",
+            "design_52455ec229f1495fad840b0b0bdb55cc",
+            "design_0c771aca95404ce89a76e57e935bfc63"
+          ],
+          "skipped_duplicates": 26,
+          "rejected": [],
+          "buffer_size": 94
+        },
+        "buffer_size": 124,
+        "training_steps_total": 60,
+        "best_design_id": "design_3838ac64c5f045d9960d7c0831d62759",
+        "simulation_count": 133,
+        "remaining": 167,
+        "runtime_s": 1.6648,
+        "best_reward": -1.1770251580790776,
+        "hard_satisfied": false,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 96,
+          "train_remaining": 60
+        }
+      }
+    },
+    {
+      "arguments": {
+        "n_steps": 30,
+        "reason": "LLM stuck after 4 non-improving probes on design_7a9ec978faaa4fbea8955259b4ed0978. Trimming wn4 to 2.5u (design_67a3897beca24b16a29e724a85ce23a9) fixed current (181uA) and PM (62.6\u00b0) but dropped UGBW to 59MHz. Decreasing cap (design_fc86977791e84b03868d5c98fe0bf22d, design_0efeaed4ea2e46e5958f804f731c301d) caused PM to fail (54.6\u00b0, 49.3\u00b0). Best design remains design_5a781a88fba740f6b1da4d13c9cff6ee (UGBW=77.5MHz, PM=59.58\u00b0). Training TD3 batch 3 to learn high-dimensional trade-offs."
+      },
+      "ngspice_attempts": 33,
+      "result": {
+        "success": true,
+        "steps": 30,
+        "ngspice_attempts": 33,
+        "critic_updates": 30,
+        "actor_updates": 15,
+        "replay": {
+          "injected": 4,
+          "candidate_ids": [
+            "design_67a3897beca24b16a29e724a85ce23a9",
+            "design_fc86977791e84b03868d5c98fe0bf22d",
+            "design_beb312dd260c4c07b863b4c1768459ce",
+            "design_0efeaed4ea2e46e5958f804f731c301d"
+          ],
+          "skipped_duplicates": 34,
+          "rejected": [],
+          "buffer_size": 128
+        },
+        "buffer_size": 158,
+        "training_steps_total": 90,
+        "best_design_id": "design_35921c538eca4464a4e8724c50ec3816",
+        "simulation_count": 170,
+        "remaining": 130,
+        "runtime_s": 1.6789,
+        "best_reward": -0.37726834880280996,
+        "hard_satisfied": false,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 92,
+          "train_remaining": 30
+        }
+      }
+    },
+    {
+      "arguments": {
+        "n_steps": 30,
+        "reason": "LLM base design_32359f9c3e6e4b8e8df04731d677fde6 has PM=61.6\u00b0 but UGBW=70.5MHz; probing cap scaling on TD3 candidate design_35921c538eca4464a4e8724c50ec3816 (UGBW=410MHz) showed PM stuck at 28\u00b0 due to tail biasing. Training final 30 TD3 steps to optimize policy toward feasible compromise between bandwidth and phase margin."
+      },
+      "ngspice_attempts": 33,
+      "result": {
+        "success": true,
+        "steps": 30,
+        "ngspice_attempts": 33,
+        "critic_updates": 30,
+        "actor_updates": 15,
+        "replay": {
+          "injected": 4,
+          "candidate_ids": [
+            "design_6c174dcfed314712bb32f41dae212efd",
+            "design_91094393c5544cc98cc739f4de0a76e3",
+            "design_6695d3ca4bc44aa2afe1a49515e5fb46",
+            "design_5578fa634e7941fb8dae8edef946fc4f"
+          ],
+          "skipped_duplicates": 38,
+          "rejected": [],
+          "buffer_size": 162
+        },
+        "buffer_size": 192,
+        "training_steps_total": 120,
+        "best_design_id": "design_9d2acc1908c346539a251005a95a1409",
+        "simulation_count": 207,
+        "remaining": 93,
+        "runtime_s": 1.6655,
+        "best_reward": -0.0367026572082373,
+        "hard_satisfied": false,
+        "adaptive_resources": {
+          "tool": "llm_led",
+          "llm_limit": 130,
+          "train_limit": 120,
+          "warmup_remaining": 0,
+          "llm_remaining": 88,
+          "train_remaining": 0
+        }
+      }
+    }
+  ],
+  "original_stop_reason": "protocol_complete",
+  "note": "Numerical provenance is preserved; the reviewed adaptive stopping classification is separate."
+}

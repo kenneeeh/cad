@@ -1,0 +1,61 @@
+{
+  "design_id": "design_04db26ca58904b4f89c9300eddda89e1",
+  "problem_id": "TwoStage-rising-b1f1eb12751d",
+  "source": "TD3",
+  "run_id": "..\\llm\\runs\\hybrid_66lc7o6_\\session_1jt0nqtg\\td3",
+  "parameters": {
+    "mp1": 10.0,
+    "wp1": 2.75e-06,
+    "lp1": 1.8e-07,
+    "mn1": 25.0,
+    "wn1": 7.5e-07,
+    "ln1": 1.35e-07,
+    "mp3": 10.0,
+    "wp3": 2e-06,
+    "lp3": 9e-08,
+    "mn3": 3.0,
+    "wn3": 1.4999999999999998e-06,
+    "ln3": 1.8e-07,
+    "mn4": 10.0,
+    "wn4": 3e-06,
+    "ln4": 1.35e-07,
+    "mn5": 8.0,
+    "wn5": 2.5e-06,
+    "ln5": 1.35e-07,
+    "cap": 2.8e-12,
+    "res": 2800.0
+  },
+  "specs": {
+    "area": 1.2125178333333333e-09,
+    "current": 0.00050397104,
+    "gain": 205.86594000056078,
+    "noise": 0.0044178794,
+    "phm": 80.70025355401452,
+    "slewRate": 49.497209927468056,
+    "ugbw": 117620211.07046327
+  },
+  "units": {
+    "area": "m^2",
+    "current": "A",
+    "gain": "V/V",
+    "noise": "V RMS",
+    "phm": "deg",
+    "slewRate": "V/us",
+    "ugbw": "Hz"
+  },
+  "reward": 0.11333446684596657,
+  "hard_satisfied": true,
+  "violated_constraints": [],
+  "metadata": {
+    "completed": true,
+    "simulator": "ngspice",
+    "simulation_id": "TwoStage_1794055075_rlcvuvgntp",
+    "simulation_count": 20,
+    "phase": "warmup",
+    "cumulative_simulation_count": 50,
+    "elapsed_s": 197.5650186999701,
+    "origin": "random_warmup"
+  },
+  "parent_id": null,
+  "hypothesis": ""
+}
